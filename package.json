@@ -1,0 +1,13 @@
+{
+  "name": "mailchimp-dashboard",
+  "version": "1.0.0",
+  "description": "Mailchimp Campaign Dashboard for The Rock Church",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["mailchimp", "dashboard", "analytics"],
+  "author": "Nathan Torres - The Rock Church",
+  "license": "MIT"
+}
