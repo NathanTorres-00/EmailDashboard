@@ -30,7 +30,7 @@ export default async function handler(req, res) {
         
         const campaignsResponse = await fetch(campaignsUrl, {
             headers: {
-                'Authorization': `Bearer ${MAILCHIMP_API_KEY}`,
+                'Authorization': `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`,
                 'Content-Type': 'application/json'
             }
         });
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
                 
                 const reportResponse = await fetch(reportUrl, {
                     headers: {
-                        'Authorization': `Bearer ${MAILCHIMP_API_KEY}`,
+                        'Authorization': `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`,
                         'Content-Type': 'application/json'
                     }
                 });

@@ -1,13 +1,4 @@
-// Mailchimp API Configuration
-// Set these values in your environment or replace with your API key
-const MAILCHIMP_API_KEY = process.env.MAILCHIMP_API_KEY || 'YOUR_API_KEY_HERE';
-const MAILCHIMP_SERVER = process.env.MAILCHIMP_SERVER || 'us19';
-const API_BASE_URL = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0`;
-
-// Since we can't make direct API calls from the browser due to CORS,
-// we'll need to use a serverless function as a proxy
-// For now, this will use a backend API endpoint
-
+// Fetch campaign data from our serverless API proxy
 async function fetchMailchimpData(days = 30) {
     try {
         // Calculate date range
