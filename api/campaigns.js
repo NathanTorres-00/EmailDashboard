@@ -3,7 +3,7 @@
 const MAILCHIMP_API_KEY = process.env.MAILCHIMP_API_KEY;
 const MAILCHIMP_SERVER = process.env.MAILCHIMP_SERVER || 'us19';
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
