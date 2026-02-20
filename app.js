@@ -150,12 +150,14 @@ function renderCampaignsTable(campaigns) {
 function renderCharts(campaigns) {
     const sorted = [...campaigns].sort((a, b) => new Date(a.send_time) - new Date(b.send_time));
 
-    const labels = sorted.map(c => {
-        const name = c.settings?.subject_line || c.settings?.title || 'Untitled';
-        return name.length > 22 ? name.slice(0, 22) + '…' : name;
-    });
-    const openRates = sorted.map(c => +((c.opens?.open_rate || 0) * 100).toFixed(2));
-    const clickRates = sorted.map(c => +((c.clicks?.click_rate || 0) * 100).toFixed(2));
+    const openRateData = sorted.map(c => ({
+        x: new Date(c.send_time),
+        y: +((c.opens?.open_rate || 0) * 100).toFixed(2)
+    }));
+    const clickRateData = sorted.map(c => ({
+        x: new Date(c.send_time),
+        y: +((c.clicks?.click_rate || 0) * 100).toFixed(2)
+    }));
 
     const sharedOptions = {
         responsive: true,
@@ -168,17 +170,28 @@ function renderCharts(campaigns) {
                 backgroundColor: '#16161a',
                 borderColor: '#27272a',
                 borderWidth: 1,
-                titleColor: '#a1a1aa',
-                bodyColor: '#fafafa',
+                titleColor: '#fafafa',
+                bodyColor: '#a1a1aa',
                 padding: 12,
                 callbacks: {
+                    title: ctx => {
+                        const name = sorted[ctx[0].dataIndex]?.settings?.subject_line
+                            || sorted[ctx[0].dataIndex]?.settings?.title
+                            || 'Untitled';
+                        return name.length > 40 ? name.slice(0, 40) + '…' : name;
+                    },
                     label: ctx => ` ${ctx.parsed.y.toFixed(2)}%`
                 }
             }
         },
         scales: {
             x: {
-                ticks: { color: '#71717a', font: { size: 11 }, maxRotation: 35 },
+                type: 'time',
+                time: {
+                    tooltipFormat: 'MMM d, yyyy',
+                    displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' }
+                },
+                ticks: { color: '#71717a', font: { size: 11 }, maxRotation: 0, maxTicksLimit: 8 },
                 grid: { color: '#27272a' }
             },
             y: {
@@ -196,9 +209,8 @@ function renderCharts(campaigns) {
     openRateChartInstance = new Chart(document.getElementById('openRateChart'), {
         type: 'line',
         data: {
-            labels,
             datasets: [{
-                data: openRates,
+                data: openRateData,
                 borderColor: '#22d3ee',
                 backgroundColor: 'rgba(34, 211, 238, 0.08)',
                 borderWidth: 2,
@@ -216,9 +228,8 @@ function renderCharts(campaigns) {
     clickRateChartInstance = new Chart(document.getElementById('clickRateChart'), {
         type: 'line',
         data: {
-            labels,
             datasets: [{
-                data: clickRates,
+                data: clickRateData,
                 borderColor: '#4ade80',
                 backgroundColor: 'rgba(74, 222, 128, 0.08)',
                 borderWidth: 2,
