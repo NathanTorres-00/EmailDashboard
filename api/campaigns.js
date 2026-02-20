@@ -23,71 +23,57 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { days, startDate, endDate } = req.body;
+        const { startDate, endDate } = req.body;
 
-        // Fetch campaigns
-        const campaignsUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/campaigns?count=1000&status=sent&sort_field=send_time&sort_dir=DESC`;
-        
-        const campaignsResponse = await fetch(campaignsUrl, {
+        const sinceSendTime = new Date(startDate).toISOString();
+        const beforeSendTime = new Date(endDate).toISOString();
+
+        const authHeader = `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`;
+
+        // Single API call: /3.0/reports returns all campaign stats in one request
+        // Previously we made N+1 calls (campaigns list + one report per campaign)
+        const reportsUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/reports?count=100&since_send_time=${sinceSendTime}&before_send_time=${beforeSendTime}&sort_field=send_time&sort_dir=DESC&fields=reports.id,reports.send_time,reports.subject_line,reports.campaign_title,reports.emails_sent,reports.opens,reports.clicks,reports.unsubscribed,reports.abuse_reports,reports.forwards`;
+
+        const reportsResponse = await fetch(reportsUrl, {
             headers: {
-                'Authorization': `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`,
+                'Authorization': authHeader,
                 'Content-Type': 'application/json'
             }
         });
 
-        if (!campaignsResponse.ok) {
-            throw new Error(`Mailchimp API error: ${campaignsResponse.statusText}`);
+        if (!reportsResponse.ok) {
+            throw new Error(`Mailchimp API error: ${reportsResponse.statusText}`);
         }
 
-        const campaignsData = await campaignsResponse.json();
-        
-        // Filter campaigns by date range
-        const filteredCampaigns = campaignsData.campaigns.filter(campaign => {
-            const sendTime = new Date(campaign.send_time);
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            return sendTime >= start && sendTime <= end;
-        });
+        const reportsData = await reportsResponse.json();
 
-        // Fetch detailed reports for each campaign
-        const campaignReports = await Promise.all(
-            filteredCampaigns.map(async (campaign) => {
-                const reportUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/reports/${campaign.id}`;
-                
-                const reportResponse = await fetch(reportUrl, {
-                    headers: {
-                        'Authorization': `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (reportResponse.ok) {
-                    return await reportResponse.json();
-                }
-                
-                // If report fails, return campaign with basic info
-                return {
-                    ...campaign,
-                    emails_sent: campaign.emails_sent || 0,
-                    opens: { unique_opens: 0, open_rate: 0, opens_total: 0 },
-                    clicks: { unique_clicks: 0, click_rate: 0, clicks_total: 0 },
-                    unsubscribed: 0,
-                    abuse_reports: 0
-                };
-            })
-        );
+        // Normalize to the shape app.js expects
+        const campaigns = (reportsData.reports || []).map(report => ({
+            id: report.id,
+            send_time: report.send_time,
+            settings: {
+                subject_line: report.subject_line,
+                title: report.campaign_title
+            },
+            emails_sent: report.emails_sent,
+            opens: report.opens,
+            clicks: report.clicks,
+            unsubscribed: report.unsubscribed,
+            abuse_reports: report.abuse_reports,
+            forwards: report.forwards
+        }));
 
         res.status(200).json({
-            campaigns: campaignReports,
-            count: campaignReports.length,
+            campaigns,
+            count: campaigns.length,
             dateRange: { start: startDate, end: endDate }
         });
 
     } catch (error) {
         console.error('Error fetching Mailchimp data:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch campaign data',
-            message: error.message 
+            message: error.message
         });
     }
 }
