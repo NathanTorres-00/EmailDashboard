@@ -4,6 +4,12 @@ let currentCampaignsData = null;
 let currentAccount = 1;
 const campaignsCache = {};
 
+const BENCHMARKS = {
+    marketing: { label: 'Marketing Avg', openRate: 21.33, clickRate: 2.62, color: '#a78bfa' },
+    corporate: { label: 'Corporate Avg', openRate: 22.0,  clickRate: 3.0,  color: '#fb923c' },
+    church:    { label: 'Church Avg',    openRate: 27.0,  clickRate: 2.8,  color: '#f59e0b' },
+};
+
 // Fetch campaign data from our serverless API proxy
 async function fetchMailchimpData(days = 30) {
     try {
@@ -159,13 +165,43 @@ function renderCharts(campaigns) {
         y: +((c.clicks?.click_rate || 0) * 100).toFixed(2)
     }));
 
+    // Determine x-axis bounds for benchmark lines
+    const now = new Date();
+    const dateRangeDays = parseInt(document.getElementById('dateRange').value) || 30;
+    const xMin = sorted.length ? new Date(sorted[0].send_time) : new Date(now - dateRangeDays * 86400000);
+    const xMax = sorted.length ? new Date(sorted[sorted.length - 1].send_time) : now;
+
+    function benchmarkDatasets(rateKey) {
+        return Object.values(BENCHMARKS).map(b => ({
+            label: b.label,
+            data: [{ x: xMin, y: b[rateKey] }, { x: xMax, y: b[rateKey] }],
+            borderColor: b.color,
+            borderWidth: 1.5,
+            borderDash: [6, 3],
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            tension: 0
+        }));
+    }
+
     const sharedOptions = {
         responsive: true,
         maintainAspectRatio: true,
         aspectRatio: 2,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-            legend: { display: false },
+            legend: {
+                display: true,
+                position: 'bottom',
+                labels: {
+                    color: '#71717a',
+                    font: { size: 11 },
+                    boxWidth: 20,
+                    padding: 12,
+                    filter: item => item.datasetIndex > 0
+                }
+            },
             tooltip: {
                 backgroundColor: '#16161a',
                 borderColor: '#27272a',
@@ -173,6 +209,7 @@ function renderCharts(campaigns) {
                 titleColor: '#fafafa',
                 bodyColor: '#a1a1aa',
                 padding: 12,
+                filter: item => item.datasetIndex === 0,
                 callbacks: {
                     title: ctx => {
                         const name = sorted[ctx[0].dataIndex]?.settings?.subject_line
@@ -209,17 +246,21 @@ function renderCharts(campaigns) {
     openRateChartInstance = new Chart(document.getElementById('openRateChart'), {
         type: 'line',
         data: {
-            datasets: [{
-                data: openRateData,
-                borderColor: '#22d3ee',
-                backgroundColor: 'rgba(34, 211, 238, 0.08)',
-                borderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                pointBackgroundColor: '#22d3ee',
-                tension: 0.3,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: 'Your Data',
+                    data: openRateData,
+                    borderColor: '#22d3ee',
+                    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#22d3ee',
+                    tension: 0.3,
+                    fill: true
+                },
+                ...benchmarkDatasets('openRate')
+            ]
         },
         options: sharedOptions
     });
@@ -228,17 +269,21 @@ function renderCharts(campaigns) {
     clickRateChartInstance = new Chart(document.getElementById('clickRateChart'), {
         type: 'line',
         data: {
-            datasets: [{
-                data: clickRateData,
-                borderColor: '#4ade80',
-                backgroundColor: 'rgba(74, 222, 128, 0.08)',
-                borderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                pointBackgroundColor: '#4ade80',
-                tension: 0.3,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: 'Your Data',
+                    data: clickRateData,
+                    borderColor: '#4ade80',
+                    backgroundColor: 'rgba(74, 222, 128, 0.08)',
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#4ade80',
+                    tension: 0.3,
+                    fill: true
+                },
+                ...benchmarkDatasets('clickRate')
+            ]
         },
         options: sharedOptions
     });
@@ -281,6 +326,58 @@ function renderHighlights(campaigns) {
     document.getElementById('worstCampaign').innerHTML = buildCard(worst, 'Worst Campaign');
 }
 
+function renderBenchmarks(campaigns) {
+    const section = document.getElementById('benchmarksSection');
+
+    if (!campaigns.length) {
+        section.innerHTML = Object.values(BENCHMARKS).map(b => `
+            <div class="benchmark-card" style="border-top-color:${b.color}">
+                <div class="benchmark-label" style="color:${b.color}">${b.label}</div>
+                <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">No data</p>
+            </div>
+        `).join('');
+        return;
+    }
+
+    const totalSent = campaigns.reduce((s, c) => s + (c.emails_sent || 0), 0);
+    const avgOpenRate = totalSent > 0
+        ? (campaigns.reduce((s, c) => s + (c.opens?.unique_opens || 0), 0) / totalSent) * 100
+        : 0;
+    const avgClickRate = totalSent > 0
+        ? (campaigns.reduce((s, c) => s + (c.clicks?.unique_clicks || 0), 0) / totalSent) * 100
+        : 0;
+
+    function diffHTML(yours, industry) {
+        const diff = yours - industry;
+        const sign = diff >= 0 ? '+' : '';
+        const arrow = diff >= 0 ? '↑' : '↓';
+        const color = diff >= 0 ? 'var(--success)' : 'var(--error)';
+        return `<span class="benchmark-diff" style="color:${color}">${sign}${diff.toFixed(2)}% ${arrow}</span>`;
+    }
+
+    section.innerHTML = Object.values(BENCHMARKS).map(b => `
+        <div class="benchmark-card" style="border-top-color:${b.color}">
+            <div class="benchmark-label" style="color:${b.color}">${b.label}</div>
+            <div class="benchmark-row">
+                <span class="benchmark-metric-name">Open Rate</span>
+                <div class="benchmark-values">
+                    <span class="benchmark-value">Industry: ${b.openRate.toFixed(2)}%</span>
+                    <span class="benchmark-yours">${avgOpenRate.toFixed(2)}%</span>
+                    ${diffHTML(avgOpenRate, b.openRate)}
+                </div>
+            </div>
+            <div class="benchmark-row">
+                <span class="benchmark-metric-name">Click Rate</span>
+                <div class="benchmark-values">
+                    <span class="benchmark-value">Industry: ${b.clickRate.toFixed(2)}%</span>
+                    <span class="benchmark-yours">${avgClickRate.toFixed(2)}%</span>
+                    ${diffHTML(avgClickRate, b.clickRate)}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
 function renderAll(campaigns) {
     if (!campaigns.length) {
         renderCampaignsTable([]);
@@ -290,11 +387,13 @@ function renderAll(campaigns) {
             avgOpenRate: 0, avgClickRate: 0
         });
         renderCharts([]);
+        renderBenchmarks([]);
         renderHighlights([]);
     } else {
         renderStats(calculateTotals(campaigns));
         renderCampaignsTable(campaigns);
         renderCharts(campaigns);
+        renderBenchmarks(campaigns);
         renderHighlights(campaigns);
     }
 }
