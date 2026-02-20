@@ -305,6 +305,38 @@
             font-size: 14px;
         }
 
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color 0.2s, border-color 0.2s;
+            font-family: inherit;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-secondary);
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            box-shadow: 0 2px 12px var(--accent-glow);
+        }
+
         .charts-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -493,6 +525,12 @@
         </div>
 
         <div id="dashboard" style="display: none;">
+            <nav class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab(1)">Solid Lives</button>
+                <button class="tab-btn" onclick="switchTab(2)">The Rock Network</button>
+                <button class="tab-btn" onclick="switchTab(3)">Jesus Disciple</button>
+            </nav>
+
             <section class="charts-section">
                 <div class="chart-card">
                     <h2 class="chart-title">Open Rate Trend</h2>

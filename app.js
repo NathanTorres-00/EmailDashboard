@@ -1,6 +1,8 @@
 let openRateChartInstance = null;
 let clickRateChartInstance = null;
 let currentCampaignsData = null;
+let currentAccount = 1;
+const campaignsCache = {};
 
 // Fetch campaign data from our serverless API proxy
 async function fetchMailchimpData(days = 30) {
@@ -19,7 +21,8 @@ async function fetchMailchimpData(days = 30) {
             body: JSON.stringify({
                 days: days,
                 startDate: startDate.toISOString(),
-                endDate: endDate.toISOString()
+                endDate: endDate.toISOString(),
+                account: String(currentAccount)
             })
         });
 
@@ -267,6 +270,41 @@ function renderHighlights(campaigns) {
     document.getElementById('worstCampaign').innerHTML = buildCard(worst, 'Worst Campaign');
 }
 
+function renderAll(campaigns) {
+    if (!campaigns.length) {
+        renderCampaignsTable([]);
+        renderStats({
+            totalSent: 0, totalOpens: 0, totalUniqueOpens: 0,
+            totalClicks: 0, totalUniqueClicks: 0, totalUnsubscribed: 0,
+            avgOpenRate: 0, avgClickRate: 0
+        });
+        renderCharts([]);
+        renderHighlights([]);
+    } else {
+        renderStats(calculateTotals(campaigns));
+        renderCampaignsTable(campaigns);
+        renderCharts(campaigns);
+        renderHighlights(campaigns);
+    }
+}
+
+function switchTab(accountNum) {
+    currentAccount = accountNum;
+    currentCampaignsData = campaignsCache[accountNum] || null;
+
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', i + 1 === accountNum);
+    });
+
+    if (campaignsCache[accountNum]) {
+        renderAll(campaignsCache[accountNum]);
+        document.getElementById('lastUpdated').textContent =
+            `Last updated: ${new Date().toLocaleTimeString()}`;
+    } else {
+        loadDashboard();
+    }
+}
+
 async function loadDashboard() {
     const loading = document.getElementById('loading');
     const dashboard = document.getElementById('dashboard');
@@ -289,28 +327,9 @@ async function loadDashboard() {
         const data = await fetchMailchimpData(parseInt(dateRange));
 
         currentCampaignsData = data.campaigns || [];
+        campaignsCache[currentAccount] = currentCampaignsData;
 
-        if (!data.campaigns || data.campaigns.length === 0) {
-            renderCampaignsTable([]);
-            renderStats({
-                totalSent: 0,
-                totalOpens: 0,
-                totalUniqueOpens: 0,
-                totalClicks: 0,
-                totalUniqueClicks: 0,
-                totalUnsubscribed: 0,
-                avgOpenRate: 0,
-                avgClickRate: 0
-            });
-            renderCharts([]);
-            renderHighlights([]);
-        } else {
-            const totals = calculateTotals(data.campaigns);
-            renderStats(totals);
-            renderCampaignsTable(data.campaigns);
-            renderCharts(data.campaigns);
-            renderHighlights(data.campaigns);
-        }
+        renderAll(currentCampaignsData);
 
         // Update last updated time
         document.getElementById('lastUpdated').textContent =

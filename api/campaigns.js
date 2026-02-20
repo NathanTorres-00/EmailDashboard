@@ -1,7 +1,14 @@
 // Vercel Serverless Function to proxy Mailchimp API requests
-// Set these in Vercel Environment Variables
-const MAILCHIMP_API_KEY = process.env.MAILCHIMP_API_KEY;
-const MAILCHIMP_SERVER = process.env.MAILCHIMP_SERVER || 'us19';
+// Set credentials in Vercel Environment Variables per account:
+//   Account 1 (Solid Lives):       MAILCHIMP_API_KEY,   MAILCHIMP_SERVER
+//   Account 2 (The Rock Network):  MAILCHIMP_API_KEY_2, MAILCHIMP_SERVER_2
+//   Account 3 (Jesus Disciple):    MAILCHIMP_API_KEY_3, MAILCHIMP_SERVER_3
+
+const ACCOUNT_CREDENTIALS = {
+    "1": { key: process.env.MAILCHIMP_API_KEY,   server: process.env.MAILCHIMP_SERVER   || 'us19' },
+    "2": { key: process.env.MAILCHIMP_API_KEY_2, server: process.env.MAILCHIMP_SERVER_2 || 'us19' },
+    "3": { key: process.env.MAILCHIMP_API_KEY_3, server: process.env.MAILCHIMP_SERVER_3 || 'us19' },
+};
 
 module.exports = async (req, res) => {
     // Enable CORS
@@ -23,7 +30,10 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { startDate, endDate } = req.body;
+        const { startDate, endDate, account = "1" } = req.body;
+
+        const creds = ACCOUNT_CREDENTIALS[account] || ACCOUNT_CREDENTIALS["1"];
+        const { key: MAILCHIMP_API_KEY, server: MAILCHIMP_SERVER } = creds;
 
         const sinceSendTime = new Date(startDate).toISOString();
         const beforeSendTime = new Date(endDate).toISOString();
