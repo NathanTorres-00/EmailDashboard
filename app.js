@@ -1,5 +1,6 @@
 let openRateChartInstance = null;
 let clickRateChartInstance = null;
+let currentCampaignsData = null;
 
 // Fetch campaign data from our serverless API proxy
 async function fetchMailchimpData(days = 30) {
@@ -271,7 +272,8 @@ async function loadDashboard() {
     const dashboard = document.getElementById('dashboard');
     const error = document.getElementById('error');
     const dateRangeSelect = document.getElementById('dateRange');
-    const refreshButton = document.querySelector('.controls button');
+    const refreshButton = document.getElementById('refreshBtn');
+    const downloadButton = document.getElementById('downloadBtn');
     const dateRange = dateRangeSelect.value;
 
     // Show loading and disable controls
@@ -279,11 +281,14 @@ async function loadDashboard() {
     dashboard.style.display = 'none';
     error.style.display = 'none';
     refreshButton.disabled = true;
+    downloadButton.disabled = true;
     dateRangeSelect.disabled = true;
     refreshButton.textContent = 'Updating...';
 
     try {
         const data = await fetchMailchimpData(parseInt(dateRange));
+
+        currentCampaignsData = data.campaigns || [];
 
         if (!data.campaigns || data.campaigns.length === 0) {
             renderCampaignsTable([]);
@@ -323,9 +328,39 @@ async function loadDashboard() {
         `;
     } finally {
         refreshButton.disabled = false;
+        downloadButton.disabled = !currentCampaignsData || currentCampaignsData.length === 0;
         dateRangeSelect.disabled = false;
         refreshButton.textContent = 'Refresh Data';
     }
+}
+
+function downloadReport() {
+    if (!currentCampaignsData || !currentCampaignsData.length) return;
+
+    const headers = ['Campaign', 'Send Date', 'Emails Sent', 'Unique Opens', 'Open Rate', 'Unique Clicks', 'Click Rate', 'Unsubscribed'];
+
+    const rows = currentCampaignsData.map(c => {
+        const name = (c.settings?.subject_line || c.settings?.title || 'Untitled').replace(/"/g, '""');
+        return [
+            `"${name}"`,
+            formatDate(c.send_time),
+            c.emails_sent || 0,
+            c.opens?.unique_opens || 0,
+            formatPercent(c.opens?.open_rate || 0),
+            c.clicks?.unique_clicks || 0,
+            formatPercent(c.clicks?.click_rate || 0),
+            c.unsubscribed || 0
+        ];
+    });
+
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 // Load dashboard on page load
