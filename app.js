@@ -103,29 +103,41 @@ function renderStats(totals) {
         {
             title: 'Total Emails Sent',
             value: formatNumber(totals.totalSent),
-            subvalue: 'Across all campaigns'
+            subvalue: 'Across all campaigns',
+            tintBg: 'rgba(34, 211, 238, 0.03)',
+            tintBorder: 'rgba(34, 211, 238, 0.12)',
+            tintValue: 'rgba(34, 211, 238, 0.6)'
         },
         {
             title: 'Average Open Rate',
             value: formatPercent(totals.avgOpenRate),
-            subvalue: `${formatNumber(totals.totalUniqueOpens)} unique opens`
+            subvalue: `${formatNumber(totals.totalUniqueOpens)} unique opens`,
+            tintBg: 'rgba(74, 222, 128, 0.03)',
+            tintBorder: 'rgba(74, 222, 128, 0.12)',
+            tintValue: 'rgba(74, 222, 128, 0.6)'
         },
         {
             title: 'Average Click Rate',
             value: formatPercent(totals.avgClickRate),
-            subvalue: `${formatNumber(totals.totalUniqueClicks)} unique clicks`
+            subvalue: `${formatNumber(totals.totalUniqueClicks)} unique clicks`,
+            tintBg: 'rgba(167, 139, 250, 0.03)',
+            tintBorder: 'rgba(167, 139, 250, 0.12)',
+            tintValue: 'rgba(167, 139, 250, 0.6)'
         },
         {
             title: 'Total Unsubscribed',
             value: formatNumber(totals.totalUnsubscribed),
-            subvalue: 'Opt-outs'
+            subvalue: 'Opt-outs',
+            tintBg: 'rgba(248, 113, 113, 0.03)',
+            tintBorder: 'rgba(248, 113, 113, 0.12)',
+            tintValue: 'rgba(248, 113, 113, 0.6)'
         }
     ];
 
     statsGrid.innerHTML = stats.map(stat => `
-        <div class="stat-card">
+        <div class="stat-card" style="background: ${stat.tintBg}; border-color: ${stat.tintBorder};">
             <h3>${stat.title}</h3>
-            <div class="value">${stat.value}</div>
+            <div class="value" style="color: ${stat.tintValue};">${stat.value}</div>
             <div class="subvalue">${stat.subvalue}</div>
         </div>
     `).join('');
