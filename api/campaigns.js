@@ -40,10 +40,11 @@ module.exports = async (req, res) => {
 
         const authHeader = `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`;
 
-        // Single API call: /3.0/reports returns all campaign stats in one request
-        // Previously we made N+1 calls (campaigns list + one report per campaign)
+        // Fetch all reports in the date range; include list_id so we can filter server-side.
+        // The list_id query param is sent too, but we don't rely on it alone since
+        // Mailchimp's reports endpoint may not always honour it as a filter.
         const listFilter = listId ? `&list_id=${listId}` : '';
-        const reportsUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/reports?count=100&since_send_time=${sinceSendTime}&before_send_time=${beforeSendTime}&sort_field=send_time&sort_dir=DESC${listFilter}&fields=reports.id,reports.send_time,reports.subject_line,reports.campaign_title,reports.emails_sent,reports.opens,reports.clicks,reports.unsubscribed,reports.abuse_reports,reports.forwards`;
+        const reportsUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/reports?count=100&since_send_time=${sinceSendTime}&before_send_time=${beforeSendTime}&sort_field=send_time&sort_dir=DESC${listFilter}&fields=reports.id,reports.list_id,reports.send_time,reports.subject_line,reports.campaign_title,reports.emails_sent,reports.opens,reports.clicks,reports.unsubscribed,reports.abuse_reports,reports.forwards`;
 
         const reportsResponse = await fetch(reportsUrl, {
             headers: {
@@ -58,8 +59,13 @@ module.exports = async (req, res) => {
 
         const reportsData = await reportsResponse.json();
 
+        // Filter by listId server-side to guarantee correct audience isolation
+        const reports = listId
+            ? (reportsData.reports || []).filter(r => r.list_id === listId)
+            : (reportsData.reports || []);
+
         // Normalize to the shape app.js expects
-        const campaigns = (reportsData.reports || []).map(report => ({
+        const campaigns = reports.map(report => ({
             id: report.id,
             send_time: report.send_time,
             settings: {
