@@ -6,10 +6,10 @@ const campaignsCache = {};
 
 // Audience tabs — matched to Mailchimp lists by name at runtime
 const AUDIENCE_TABS = [
-    { label: 'Jesus Disciple App',              matchKey: 'jesus disciple app',  listId: null },
-    { label: 'The Rock Network | Group Leaders', matchKey: 'group leader',        listId: null },
-    { label: 'JD Networks [ERYNE]',             matchKey: 'eryne',               listId: null },
-    { label: 'JDU Interest',                    matchKey: 'jdu interest',        listId: null },
+    { label: 'Jesus Disciple App',              matchKey: 'jesus disciple app',  listId: null, memberCount: null },
+    { label: 'The Rock Network | Group Leaders', matchKey: 'group leader',        listId: null, memberCount: null },
+    { label: 'JD Networks [ERYNE]',             matchKey: 'eryne',               listId: null, memberCount: null },
+    { label: 'JDU Interest',                    matchKey: 'jdu interest',        listId: null, memberCount: null },
 ];
 
 const BENCHMARKS = {
@@ -34,7 +34,10 @@ async function fetchAudienceLists() {
 function matchListsToTabs(lists) {
     for (const tab of AUDIENCE_TABS) {
         const match = lists.find(l => l.name.toLowerCase().includes(tab.matchKey.toLowerCase()));
-        if (match) tab.listId = match.id;
+        if (match) {
+            tab.listId = match.id;
+            tab.memberCount = match.memberCount;
+        }
     }
 }
 
@@ -130,8 +133,17 @@ function renderStats(totals) {
 
     const count = totals.campaignCount || 0;
     const countLabel = `From ${count} campaign${count !== 1 ? 's' : ''}`;
+    const memberCount = AUDIENCE_TABS[currentTabIndex]?.memberCount;
 
     const stats = [
+        {
+            title: 'Audience Size',
+            value: memberCount != null ? formatNumber(memberCount) : '—',
+            subvalue: 'Active subscribers',
+            tintBg: 'rgba(251, 146, 60, 0.03)',
+            tintBorder: 'rgba(251, 146, 60, 0.12)',
+            accentColor: '#fb923c'
+        },
         {
             title: 'Total Emails Sent',
             value: formatNumber(totals.totalSent),

@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
         const { key: MAILCHIMP_API_KEY, server: MAILCHIMP_SERVER } = creds;
 
         const authHeader = `Basic ${Buffer.from('anystring:' + MAILCHIMP_API_KEY).toString('base64')}`;
-        const url = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/lists?count=100&fields=lists.id,lists.name`;
+        const url = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/lists?count=100&fields=lists.id,lists.name,lists.stats`;
 
         const response = await fetch(url, {
             headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' }
@@ -29,7 +29,11 @@ module.exports = async (req, res) => {
         if (!response.ok) throw new Error(`Mailchimp API error: ${response.statusText}`);
 
         const data = await response.json();
-        const lists = (data.lists || []).map(l => ({ id: l.id, name: l.name }));
+        const lists = (data.lists || []).map(l => ({
+            id: l.id,
+            name: l.name,
+            memberCount: l.stats?.member_count ?? 0
+        }));
 
         res.status(200).json({ lists });
     } catch (error) {
