@@ -418,14 +418,20 @@
             background: transparent;
             border: none;
             border-bottom: 2px solid transparent;
-            padding: 10px 20px;
-            font-size: 14px;
+            padding: 10px 16px;
+            font-size: 13px;
             font-weight: 500;
             color: var(--text-muted);
             cursor: pointer;
             margin-bottom: -1px;
             transition: color 0.2s, border-color 0.2s;
             font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .tab-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         .tab-btn:hover {
@@ -667,9 +673,7 @@
 
         <div id="dashboard" style="display: none;">
             <nav class="tab-nav">
-                <button class="tab-btn active" onclick="switchTab(1)">Solid Lives</button>
-                <button class="tab-btn" onclick="switchTab(2)">The Rock Network</button>
-                <button class="tab-btn" onclick="switchTab(3)">Jesus Disciple</button>
+                <!-- Populated dynamically by renderTabs() after audience list IDs are resolved -->
             </nav>
 
             <!-- 1. Stats KPIs — summary first -->

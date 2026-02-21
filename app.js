@@ -1,8 +1,16 @@
 let openRateChartInstance = null;
 let clickRateChartInstance = null;
 let currentCampaignsData = null;
-let currentAccount = 1;
+let currentTabIndex = 0;
 const campaignsCache = {};
+
+// Audience tabs — matched to Mailchimp lists by name at runtime
+const AUDIENCE_TABS = [
+    { label: 'Jesus Disciple App',              matchKey: 'jesus disciple app',  listId: null },
+    { label: 'The Rock Network | Group Leaders', matchKey: 'group leader',        listId: null },
+    { label: 'JD Networks [ERYNE]',             matchKey: 'eryne',               listId: null },
+    { label: 'JDU Interest',                    matchKey: 'jdu interest',        listId: null },
+];
 
 const BENCHMARKS = {
     marketing: { label: 'Marketing Avg', openRate: 21.33, clickRate: 2.62, color: '#a78bfa' },
@@ -10,38 +18,58 @@ const BENCHMARKS = {
     church:    { label: 'Church Avg',    openRate: 27.0,  clickRate: 2.8,  color: '#f59e0b' },
 };
 
-// Fetch campaign data from our serverless API proxy
-async function fetchMailchimpData(days = 30) {
-    try {
-        // Calculate date range
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - days);
+// Fetch all Mailchimp audience lists for account 1
+async function fetchAudienceLists() {
+    const response = await fetch('/api/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: '1' })
+    });
+    if (!response.ok) throw new Error('Failed to fetch audience lists');
+    const data = await response.json();
+    return data.lists || [];
+}
 
-        // We'll call our serverless function which will proxy the Mailchimp API
-        const response = await fetch('/api/campaigns', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                days: days,
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString(),
-                account: String(currentAccount)
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch campaign data');
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error fetching Mailchimp data:', error);
-        throw error;
+// Match fetched lists to AUDIENCE_TABS by name (case-insensitive substring)
+function matchListsToTabs(lists) {
+    for (const tab of AUDIENCE_TABS) {
+        const match = lists.find(l => l.name.toLowerCase().includes(tab.matchKey.toLowerCase()));
+        if (match) tab.listId = match.id;
     }
+}
+
+// Render the tab nav from AUDIENCE_TABS
+function renderTabs() {
+    const nav = document.querySelector('.tab-nav');
+    nav.innerHTML = AUDIENCE_TABS.map((tab, i) => `
+        <button class="tab-btn${i === currentTabIndex ? ' active' : ''}"
+                onclick="switchTab(${i})"
+                ${!tab.listId ? 'disabled title="Audience not found in Mailchimp"' : ''}>
+            ${tab.label}
+        </button>
+    `).join('');
+}
+
+// Fetch campaign data from our serverless API proxy
+async function fetchMailchimpData(days = 30, listId = null) {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const response = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            days,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            account: '1',
+            listId
+        })
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch campaign data');
+    return response.json();
 }
 
 function formatNumber(num) {
@@ -416,22 +444,25 @@ function renderAll(campaigns) {
     }
 }
 
-function switchTab(accountNum) {
-    currentAccount = accountNum;
-    currentCampaignsData = campaignsCache[accountNum] || null;
+function switchTab(index) {
+    currentTabIndex = index;
+    const tab = AUDIENCE_TABS[index];
+    currentCampaignsData = campaignsCache[tab.listId] || null;
 
     document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', i + 1 === accountNum);
+        btn.classList.toggle('active', i === index);
     });
 
-    if (campaignsCache[accountNum]) {
-        renderAll(campaignsCache[accountNum]);
+    if (tab.listId && campaignsCache[tab.listId]) {
+        renderAll(campaignsCache[tab.listId]);
         document.getElementById('lastUpdated').textContent =
             `Last updated: ${new Date().toLocaleTimeString()}`;
     } else {
         loadDashboard();
     }
 }
+
+let listsInitialized = false;
 
 async function loadDashboard() {
     const loading = document.getElementById('loading');
@@ -442,7 +473,6 @@ async function loadDashboard() {
     const downloadButton = document.getElementById('downloadBtn');
     const dateRange = dateRangeSelect.value;
 
-    // Show loading and disable controls
     loading.style.display = 'block';
     dashboard.style.display = 'none';
     error.style.display = 'none';
@@ -452,18 +482,29 @@ async function loadDashboard() {
     refreshButton.innerHTML = 'Updating...';
 
     try {
-        const data = await fetchMailchimpData(parseInt(dateRange));
+        // On first load, resolve audience list IDs from Mailchimp
+        if (!listsInitialized) {
+            const lists = await fetchAudienceLists();
+            matchListsToTabs(lists);
+            listsInitialized = true;
+            renderTabs();
+        }
+
+        const tab = AUDIENCE_TABS[currentTabIndex];
+        if (!tab.listId) {
+            throw new Error(`Audience "${tab.label}" was not found in Mailchimp. Check the list name.`);
+        }
+
+        const data = await fetchMailchimpData(parseInt(dateRange), tab.listId);
 
         currentCampaignsData = data.campaigns || [];
-        campaignsCache[currentAccount] = currentCampaignsData;
+        campaignsCache[tab.listId] = currentCampaignsData;
 
         renderAll(currentCampaignsData);
 
-        // Update last updated time
         document.getElementById('lastUpdated').textContent =
             `Last updated: ${new Date().toLocaleTimeString()}`;
 
-        // Show dashboard
         loading.style.display = 'none';
         dashboard.style.display = 'block';
     } catch (err) {

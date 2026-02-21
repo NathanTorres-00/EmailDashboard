@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { startDate, endDate, account = "1" } = req.body;
+        const { startDate, endDate, account = "1", listId } = req.body;
 
         const creds = ACCOUNT_CREDENTIALS[account] || ACCOUNT_CREDENTIALS["1"];
         const { key: MAILCHIMP_API_KEY, server: MAILCHIMP_SERVER } = creds;
@@ -42,7 +42,8 @@ module.exports = async (req, res) => {
 
         // Single API call: /3.0/reports returns all campaign stats in one request
         // Previously we made N+1 calls (campaigns list + one report per campaign)
-        const reportsUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/reports?count=100&since_send_time=${sinceSendTime}&before_send_time=${beforeSendTime}&sort_field=send_time&sort_dir=DESC&fields=reports.id,reports.send_time,reports.subject_line,reports.campaign_title,reports.emails_sent,reports.opens,reports.clicks,reports.unsubscribed,reports.abuse_reports,reports.forwards`;
+        const listFilter = listId ? `&list_id=${listId}` : '';
+        const reportsUrl = `https://${MAILCHIMP_SERVER}.api.mailchimp.com/3.0/reports?count=100&since_send_time=${sinceSendTime}&before_send_time=${beforeSendTime}&sort_field=send_time&sort_dir=DESC${listFilter}&fields=reports.id,reports.send_time,reports.subject_line,reports.campaign_title,reports.emails_sent,reports.opens,reports.clicks,reports.unsubscribed,reports.abuse_reports,reports.forwards`;
 
         const reportsResponse = await fetch(reportsUrl, {
             headers: {
