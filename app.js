@@ -270,8 +270,8 @@ function renderCharts(campaigns) {
                     borderColor: '#22d3ee',
                     backgroundColor: 'rgba(34, 211, 238, 0.08)',
                     borderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
                     pointBackgroundColor: '#22d3ee',
                     tension: 0.3,
                     fill: true
@@ -293,8 +293,8 @@ function renderCharts(campaigns) {
                     borderColor: '#4ade80',
                     backgroundColor: 'rgba(74, 222, 128, 0.08)',
                     borderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
                     pointBackgroundColor: '#4ade80',
                     tension: 0.3,
                     fill: true
