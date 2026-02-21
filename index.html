@@ -6,6 +6,9 @@
     <title>The Rock Church - Mailchimp Campaign Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #09090b;
@@ -226,6 +229,14 @@
             font-size: 13px;
         }
 
+        .stat-card-accent {
+            width: 28px;
+            height: 3px;
+            border-radius: 2px;
+            margin-bottom: 14px;
+            opacity: 0.9;
+        }
+
         .campaigns-table {
             background: var(--bg-card);
             border-radius: 16px;
@@ -286,7 +297,7 @@
 
         .campaign-title {
             font-weight: 500;
-            color: var(--accent);
+            color: var(--text-primary);
         }
 
         .rate {
@@ -334,45 +345,65 @@
             margin-bottom: 16px;
         }
 
-        .benchmark-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 14px;
+        .benchmark-metric-block {
+            margin-bottom: 16px;
         }
 
-        .benchmark-row:last-child {
+        .benchmark-metric-block:last-child {
             margin-bottom: 0;
         }
 
         .benchmark-metric-name {
-            font-size: 12px;
+            font-size: 10px;
+            font-weight: 600;
             color: var(--text-muted);
-            padding-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
         }
 
-        .benchmark-values {
+        .benchmark-yours-row {
             display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 2px;
-        }
-
-        .benchmark-value {
-            font-size: 12px;
-            color: var(--text-muted);
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 4px;
+            flex-wrap: wrap;
         }
 
         .benchmark-yours {
-            font-size: 20px;
+            font-size: 26px;
             font-weight: 700;
             color: var(--text-primary);
             letter-spacing: -0.5px;
+            line-height: 1;
         }
 
         .benchmark-diff {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .benchmark-diff-positive {
+            color: var(--success);
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .benchmark-diff-negative {
+            color: var(--error);
+            background: rgba(248, 113, 113, 0.1);
+        }
+
+        .benchmark-industry-line {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .benchmark-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 14px 0;
         }
 
         .tab-nav {
@@ -427,13 +458,52 @@
             box-shadow: 0 0 30px var(--accent-glow);
         }
 
-        .chart-title {
-            color: var(--text-muted);
-            font-size: 12px;
-            font-weight: 500;
+        .section-heading {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-heading::before {
+            content: '';
+            display: inline-block;
+            width: 3px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .chart-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
             margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-title::before {
+            content: '';
+            display: inline-block;
+            width: 3px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 2px;
+            flex-shrink: 0;
         }
 
         .highlights-section {
@@ -583,8 +653,8 @@
                 <option value="30" selected>Last 30 Days</option>
                 <option value="90">Last 90 Days</option>
             </select>
-            <button id="refreshBtn" onclick="loadDashboard()">Refresh Data</button>
-            <button id="downloadBtn" onclick="downloadReport()" disabled>Download Report</button>
+            <button id="refreshBtn" onclick="loadDashboard()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Refresh Data</button>
+            <button id="downloadBtn" onclick="downloadReport()" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download Report</button>
             <span id="lastUpdated" style="margin-left: auto; color: var(--text-muted); font-size: 13px;"></span>
         </div>
 
@@ -602,26 +672,34 @@
                 <button class="tab-btn" onclick="switchTab(3)">Jesus Disciple</button>
             </nav>
 
+            <!-- 1. Stats KPIs — summary first -->
+            <div class="stats-grid" id="statsGrid"></div>
+
+            <!-- 2. Performance Trend Charts -->
+            <h2 class="section-heading">Performance Trends</h2>
             <section class="charts-section">
                 <div class="chart-card">
-                    <h2 class="chart-title">Open Rate Trend</h2>
+                    <h3 class="chart-title">Open Rate Trend</h3>
                     <canvas id="openRateChart"></canvas>
                 </div>
                 <div class="chart-card">
-                    <h2 class="chart-title">Click Rate Trend</h2>
+                    <h3 class="chart-title">Click Rate Trend</h3>
                     <canvas id="clickRateChart"></canvas>
                 </div>
             </section>
 
+            <!-- 3. Industry Benchmarks -->
+            <h2 class="section-heading">Industry Benchmarks</h2>
             <section class="benchmarks-section" id="benchmarksSection"></section>
 
-            <div class="stats-grid" id="statsGrid"></div>
-
+            <!-- 4. Campaign Highlights -->
+            <h2 class="section-heading">Campaign Highlights</h2>
             <section class="highlights-section">
                 <div id="bestCampaign" class="highlight-card highlight-best"></div>
                 <div id="worstCampaign" class="highlight-card highlight-worst"></div>
             </section>
 
+            <!-- 5. Campaign Details Table -->
             <div class="campaigns-table">
                 <div class="table-header">
                     <h2>Campaign Details</h2>

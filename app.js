@@ -92,6 +92,7 @@ function calculateTotals(campaigns) {
     totals.avgClickRate = totals.totalSent > 0
         ? totals.totalUniqueClicks / totals.totalSent
         : 0;
+    totals.campaignCount = campaigns.length;
 
     return totals;
 }
@@ -99,14 +100,17 @@ function calculateTotals(campaigns) {
 function renderStats(totals) {
     const statsGrid = document.getElementById('statsGrid');
 
+    const count = totals.campaignCount || 0;
+    const countLabel = `From ${count} campaign${count !== 1 ? 's' : ''}`;
+
     const stats = [
         {
             title: 'Total Emails Sent',
             value: formatNumber(totals.totalSent),
-            subvalue: 'Across all campaigns',
+            subvalue: countLabel,
             tintBg: 'rgba(34, 211, 238, 0.03)',
             tintBorder: 'rgba(34, 211, 238, 0.12)',
-            tintValue: 'rgba(34, 211, 238, 0.6)'
+            accentColor: '#22d3ee'
         },
         {
             title: 'Average Open Rate',
@@ -114,7 +118,7 @@ function renderStats(totals) {
             subvalue: `${formatNumber(totals.totalUniqueOpens)} unique opens`,
             tintBg: 'rgba(74, 222, 128, 0.03)',
             tintBorder: 'rgba(74, 222, 128, 0.12)',
-            tintValue: 'rgba(74, 222, 128, 0.6)'
+            accentColor: '#4ade80'
         },
         {
             title: 'Average Click Rate',
@@ -122,22 +126,23 @@ function renderStats(totals) {
             subvalue: `${formatNumber(totals.totalUniqueClicks)} unique clicks`,
             tintBg: 'rgba(167, 139, 250, 0.03)',
             tintBorder: 'rgba(167, 139, 250, 0.12)',
-            tintValue: 'rgba(167, 139, 250, 0.6)'
+            accentColor: '#a78bfa'
         },
         {
             title: 'Total Unsubscribed',
             value: formatNumber(totals.totalUnsubscribed),
-            subvalue: 'Opt-outs',
+            subvalue: countLabel,
             tintBg: 'rgba(248, 113, 113, 0.03)',
             tintBorder: 'rgba(248, 113, 113, 0.12)',
-            tintValue: 'rgba(248, 113, 113, 0.6)'
+            accentColor: '#f87171'
         }
     ];
 
     statsGrid.innerHTML = stats.map(stat => `
         <div class="stat-card" style="background: ${stat.tintBg}; border-color: ${stat.tintBorder};">
+            <div class="stat-card-accent" style="background: ${stat.accentColor};"></div>
             <h3>${stat.title}</h3>
-            <div class="value" style="color: ${stat.tintValue};">${stat.value}</div>
+            <div class="value">${stat.value}</div>
             <div class="subvalue">${stat.subvalue}</div>
         </div>
     `).join('');
@@ -359,32 +364,33 @@ function renderBenchmarks(campaigns) {
         ? (campaigns.reduce((s, c) => s + (c.clicks?.unique_clicks || 0), 0) / totalSent) * 100
         : 0;
 
-    function diffHTML(yours, industry) {
+    function diffBadge(yours, industry) {
         const diff = yours - industry;
         const sign = diff >= 0 ? '+' : '';
         const arrow = diff >= 0 ? '↑' : '↓';
-        const color = diff >= 0 ? 'var(--success)' : 'var(--error)';
-        return `<span class="benchmark-diff" style="color:${color}">${sign}${diff.toFixed(2)}% ${arrow}</span>`;
+        const cls = diff >= 0 ? 'benchmark-diff-positive' : 'benchmark-diff-negative';
+        return `<span class="benchmark-diff ${cls}">${sign}${diff.toFixed(2)}% ${arrow} vs industry</span>`;
     }
 
     section.innerHTML = Object.values(BENCHMARKS).map(b => `
         <div class="benchmark-card" style="border-top-color:${b.color}">
             <div class="benchmark-label" style="color:${b.color}">${b.label}</div>
-            <div class="benchmark-row">
-                <span class="benchmark-metric-name">Open Rate</span>
-                <div class="benchmark-values">
-                    <span class="benchmark-value">Industry: ${b.openRate.toFixed(2)}%</span>
+            <div class="benchmark-metric-block">
+                <div class="benchmark-metric-name">Open Rate</div>
+                <div class="benchmark-yours-row">
                     <span class="benchmark-yours">${avgOpenRate.toFixed(2)}%</span>
-                    ${diffHTML(avgOpenRate, b.openRate)}
+                    ${diffBadge(avgOpenRate, b.openRate)}
                 </div>
+                <div class="benchmark-industry-line">Industry avg: ${b.openRate.toFixed(2)}%</div>
             </div>
-            <div class="benchmark-row">
-                <span class="benchmark-metric-name">Click Rate</span>
-                <div class="benchmark-values">
-                    <span class="benchmark-value">Industry: ${b.clickRate.toFixed(2)}%</span>
+            <div class="benchmark-divider"></div>
+            <div class="benchmark-metric-block">
+                <div class="benchmark-metric-name">Click Rate</div>
+                <div class="benchmark-yours-row">
                     <span class="benchmark-yours">${avgClickRate.toFixed(2)}%</span>
-                    ${diffHTML(avgClickRate, b.clickRate)}
+                    ${diffBadge(avgClickRate, b.clickRate)}
                 </div>
+                <div class="benchmark-industry-line">Industry avg: ${b.clickRate.toFixed(2)}%</div>
             </div>
         </div>
     `).join('');
@@ -396,7 +402,7 @@ function renderAll(campaigns) {
         renderStats({
             totalSent: 0, totalOpens: 0, totalUniqueOpens: 0,
             totalClicks: 0, totalUniqueClicks: 0, totalUnsubscribed: 0,
-            avgOpenRate: 0, avgClickRate: 0
+            avgOpenRate: 0, avgClickRate: 0, campaignCount: 0
         });
         renderCharts([]);
         renderBenchmarks([]);
@@ -443,7 +449,7 @@ async function loadDashboard() {
     refreshButton.disabled = true;
     downloadButton.disabled = true;
     dateRangeSelect.disabled = true;
-    refreshButton.textContent = 'Updating...';
+    refreshButton.innerHTML = 'Updating...';
 
     try {
         const data = await fetchMailchimpData(parseInt(dateRange));
@@ -471,7 +477,7 @@ async function loadDashboard() {
         refreshButton.disabled = false;
         downloadButton.disabled = !currentCampaignsData || currentCampaignsData.length === 0;
         dateRangeSelect.disabled = false;
-        refreshButton.textContent = 'Refresh Data';
+        refreshButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>Refresh Data';
     }
 }
 
