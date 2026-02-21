@@ -46,7 +46,7 @@
         }
 
         header {
-            background: var(--bg-card);
+            background: linear-gradient(135deg, #0d0d11 0%, #111116 50%, #0f0f13 100%);
             padding: 32px;
             border-radius: 16px;
             margin-bottom: 24px;
@@ -61,17 +61,16 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 1px;
-            background: var(--accent);
-            box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-glow);
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent) 0%, rgba(34,211,238,0.4) 40%, transparent 70%);
         }
 
         h1 {
             color: var(--text-primary);
-            font-size: 24px;
-            font-weight: 600;
+            font-size: 26px;
+            font-weight: 700;
             margin-bottom: 8px;
-            letter-spacing: -0.5px;
+            letter-spacing: -1px;
         }
 
         .subtitle {
@@ -276,6 +275,9 @@
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.8px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         td {
@@ -427,6 +429,10 @@
             transition: color 0.2s, border-color 0.2s;
             font-family: inherit;
             white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1px;
         }
 
         .tab-btn:disabled {
@@ -614,6 +620,170 @@
             color: var(--text-muted);
         }
 
+        /* ── Period Summary Bar ─────────────────────────────── */
+        .period-summary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--accent);
+            border-radius: 10px;
+            padding: 11px 18px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .period-summary .period-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-right: 4px;
+        }
+        .period-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 2px 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .period-stat strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .period-summary .period-dot {
+            color: var(--border-color);
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* ── Benchmark Context Badges on Stat Cards ─────────── */
+        .bench-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .bench-positive {
+            color: var(--success);
+            background: rgba(74, 222, 128, 0.12);
+        }
+        .bench-negative {
+            color: var(--error);
+            background: rgba(248, 113, 113, 0.12);
+        }
+
+        /* ── Color-Coded Table Rate Cells ───────────────────── */
+        .rate-good {
+            color: var(--success) !important;
+            background: rgba(74, 222, 128, 0.07);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .rate-poor {
+            color: var(--error) !important;
+            background: rgba(248, 113, 113, 0.07);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .rate-mid {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        /* ── Benchmark Progress Bars ────────────────────────── */
+        .benchmark-bar-track {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-color);
+            margin-top: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .benchmark-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+            max-width: 100%;
+        }
+        .benchmark-bar-mark {
+            position: absolute;
+            top: -3px;
+            width: 2px;
+            height: 10px;
+            background: var(--text-secondary);
+            border-radius: 1px;
+        }
+
+        /* ── Tab Member Count ───────────────────────────────── */
+        .tab-btn {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1px;
+        }
+        .tab-label {
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.3;
+        }
+        .tab-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 400;
+            line-height: 1;
+        }
+        .tab-btn.active .tab-count {
+            color: var(--accent);
+            opacity: 0.7;
+        }
+
+        /* ── Print Styles ───────────────────────────────────── */
+        @media print {
+            @page { margin: 0.75in; }
+            body { background: #fff; color: #111; padding: 0; }
+            .controls, #loading, #error, .tab-nav, .period-summary { display: none !important; }
+            header {
+                background: #fff;
+                border: none;
+                box-shadow: none;
+                padding: 16px 0;
+            }
+            header::before { display: none; }
+            h1 { color: #111; font-size: 20px; }
+            .subtitle { color: #555; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+            .charts-section, .benchmarks-section, .highlights-section {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .stat-card, .benchmark-card, .chart-card, .highlight-card {
+                border: 1px solid #ddd;
+                background: #fff;
+                break-inside: avoid;
+            }
+            .stat-card .value { color: #111; font-size: 28px; }
+            .stat-card h3, .benchmark-label, .chart-title,
+            .highlight-badge, .highlight-metric-label { color: #555; }
+            .benchmark-yours { color: #111; }
+            .benchmark-industry-line { color: #777; }
+            .highlight-name { color: #111; }
+            table { font-size: 11px; }
+            th { background: #f5f5f5; color: #555; position: static; }
+            td { color: #333; }
+            .campaign-title { color: #111; }
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 16px;
@@ -676,7 +846,10 @@
                 <!-- Populated dynamically by renderTabs() after audience list IDs are resolved -->
             </nav>
 
-            <!-- 1. Stats KPIs — summary first -->
+            <!-- 1a. Period Summary Bar -->
+            <div id="periodSummary" class="period-summary" style="display:none;"></div>
+
+            <!-- 1b. Stats KPIs — summary first -->
             <div class="stats-grid" id="statsGrid"></div>
 
             <!-- 2. Performance Trend Charts -->

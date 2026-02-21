@@ -48,7 +48,8 @@ function renderTabs() {
         <button class="tab-btn${i === currentTabIndex ? ' active' : ''}"
                 onclick="switchTab(${i})"
                 ${!tab.listId ? 'disabled title="Audience not found in Mailchimp"' : ''}>
-            ${tab.label}
+            <span class="tab-label">${tab.label}</span>
+            ${tab.memberCount != null ? `<span class="tab-count">${formatNumber(tab.memberCount)} subscribers</span>` : ''}
         </button>
     `).join('');
 }
@@ -135,6 +136,16 @@ function renderStats(totals) {
     const countLabel = `From ${count} campaign${count !== 1 ? 's' : ''}`;
     const memberCount = AUDIENCE_TABS[currentTabIndex]?.memberCount;
 
+    // Church benchmark context badges
+    function benchBadge(yours, industry) {
+        const diff = (yours * 100) - industry;
+        const sign = diff >= 0 ? '+' : '';
+        const cls = diff >= 0 ? 'bench-positive' : 'bench-negative';
+        return `<span class="bench-badge ${cls}">${sign}${diff.toFixed(1)}pp vs church avg</span>`;
+    }
+    const openBadge = totals.totalSent > 0 ? benchBadge(totals.avgOpenRate, BENCHMARKS.church.openRate) : '';
+    const clickBadge = totals.totalSent > 0 ? benchBadge(totals.avgClickRate, BENCHMARKS.church.clickRate) : '';
+
     const stats = [
         {
             title: 'Audience Size',
@@ -155,7 +166,7 @@ function renderStats(totals) {
         {
             title: 'Average Open Rate',
             value: formatPercent(totals.avgOpenRate),
-            subvalue: `${formatNumber(totals.totalUniqueOpens)} unique opens`,
+            subvalue: `${formatNumber(totals.totalUniqueOpens)} unique opens${openBadge ? ' · ' + openBadge : ''}`,
             tintBg: 'rgba(74, 222, 128, 0.03)',
             tintBorder: 'rgba(74, 222, 128, 0.12)',
             accentColor: '#4ade80'
@@ -163,7 +174,7 @@ function renderStats(totals) {
         {
             title: 'Average Click Rate',
             value: formatPercent(totals.avgClickRate),
-            subvalue: `${formatNumber(totals.totalUniqueClicks)} unique clicks`,
+            subvalue: `${formatNumber(totals.totalUniqueClicks)} unique clicks${clickBadge ? ' · ' + clickBadge : ''}`,
             tintBg: 'rgba(167, 139, 250, 0.03)',
             tintBorder: 'rgba(167, 139, 250, 0.12)',
             accentColor: '#a78bfa'
@@ -183,7 +194,7 @@ function renderStats(totals) {
             <div class="stat-card-accent" style="background: ${stat.accentColor};"></div>
             <h3>${stat.title}</h3>
             <div class="value">${stat.value}</div>
-            <div class="subvalue">${stat.subvalue}</div>
+            <div class="subvalue" style="line-height:1.8;">${stat.subvalue}</div>
         </div>
     `).join('');
 }
@@ -196,18 +207,27 @@ function renderCampaignsTable(campaigns) {
         return;
     }
 
-    tbody.innerHTML = campaigns.map(campaign => `
+    // Church benchmark thresholds for color coding
+    const OPEN_GOOD = 0.27, OPEN_POOR = 0.21;
+    const CLICK_GOOD = 0.028, CLICK_POOR = 0.020;
+
+    tbody.innerHTML = campaigns.map(campaign => {
+        const openRate = campaign.opens?.open_rate || 0;
+        const clickRate = campaign.clicks?.click_rate || 0;
+        const openClass = openRate >= OPEN_GOOD ? 'rate-good' : openRate < OPEN_POOR ? 'rate-poor' : 'rate-mid';
+        const clickClass = clickRate >= CLICK_GOOD ? 'rate-good' : clickRate < CLICK_POOR ? 'rate-poor' : 'rate-mid';
+        return `
         <tr>
             <td class="campaign-title">${campaign.settings?.subject_line || campaign.settings?.title || 'Untitled'}</td>
             <td class="date">${formatDate(campaign.send_time)}</td>
             <td>${formatNumber(campaign.emails_sent || 0)}</td>
             <td>${formatNumber(campaign.opens?.unique_opens || 0)}</td>
-            <td class="rate">${formatPercent(campaign.opens?.open_rate || 0)}</td>
+            <td><span class="${openClass}">${formatPercent(openRate)}</span></td>
             <td>${formatNumber(campaign.clicks?.unique_clicks || 0)}</td>
-            <td class="rate">${formatPercent(campaign.clicks?.click_rate || 0)}</td>
+            <td><span class="${clickClass}">${formatPercent(clickRate)}</span></td>
             <td>${formatNumber(campaign.unsubscribed || 0)}</td>
-        </tr>
-    `).join('');
+        </tr>`;
+    }).join('');
 }
 
 function renderCharts(campaigns) {
@@ -412,6 +432,17 @@ function renderBenchmarks(campaigns) {
         return `<span class="benchmark-diff ${cls}">${sign}${diff.toFixed(2)}% ${arrow} vs industry</span>`;
     }
 
+    function progressBar(yours, industry, color) {
+        // Scale: industry avg = 75% of track width, so bars > industry can show overage
+        const pct = industry > 0 ? Math.min((yours / industry) * 75, 100) : 0;
+        const markLeft = 75; // industry mark always at 75%
+        return `
+            <div class="benchmark-bar-track">
+                <div class="benchmark-bar-fill" style="width:${pct}%;background:${color};"></div>
+                <div class="benchmark-bar-mark" style="left:${markLeft}%;"></div>
+            </div>`;
+    }
+
     section.innerHTML = Object.values(BENCHMARKS).map(b => `
         <div class="benchmark-card" style="border-top-color:${b.color}">
             <div class="benchmark-label" style="color:${b.color}">${b.label}</div>
@@ -422,6 +453,7 @@ function renderBenchmarks(campaigns) {
                     ${diffBadge(avgOpenRate, b.openRate)}
                 </div>
                 <div class="benchmark-industry-line">Industry avg: ${b.openRate.toFixed(2)}%</div>
+                ${progressBar(avgOpenRate, b.openRate, b.color)}
             </div>
             <div class="benchmark-divider"></div>
             <div class="benchmark-metric-block">
@@ -431,13 +463,46 @@ function renderBenchmarks(campaigns) {
                     ${diffBadge(avgClickRate, b.clickRate)}
                 </div>
                 <div class="benchmark-industry-line">Industry avg: ${b.clickRate.toFixed(2)}%</div>
+                ${progressBar(avgClickRate, b.clickRate, b.color)}
             </div>
         </div>
     `).join('');
 }
 
+function renderPeriodSummary(campaigns) {
+    const el = document.getElementById('periodSummary');
+    const days = parseInt(document.getElementById('dateRange').value) || 30;
+    const labels = { 7: 'Last 7 Days', 14: 'Last 14 Days', 30: 'Last 30 Days', 90: 'Last 90 Days' };
+    const periodLabel = labels[days] || `Last ${days} Days`;
+
+    const end = new Date();
+    const start = new Date(end - days * 86400000);
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const fmtFull = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateRange = `${fmt(start)} – ${fmtFull(end)}`;
+
+    if (!campaigns.length) {
+        el.style.display = 'none';
+        return;
+    }
+
+    const totals = calculateTotals(campaigns);
+    el.style.display = 'flex';
+    el.innerHTML = `
+        <span class="period-label">${periodLabel}</span>
+        <span class="period-dot">·</span>
+        <span style="color:var(--text-muted);font-size:12px;">${dateRange}</span>
+        <span style="flex:1;"></span>
+        <span class="period-stat">${totals.campaignCount} campaign${totals.campaignCount !== 1 ? 's' : ''}</span>
+        <span class="period-stat"><strong>${formatNumber(totals.totalSent)}</strong> sent</span>
+        <span class="period-stat"><strong>${formatPercent(totals.avgOpenRate)}</strong> open</span>
+        <span class="period-stat"><strong>${formatPercent(totals.avgClickRate)}</strong> click</span>
+    `;
+}
+
 function renderAll(campaigns) {
     if (!campaigns.length) {
+        document.getElementById('periodSummary').style.display = 'none';
         renderCampaignsTable([]);
         renderStats({
             totalSent: 0, totalOpens: 0, totalUniqueOpens: 0,
@@ -448,6 +513,7 @@ function renderAll(campaigns) {
         renderBenchmarks([]);
         renderHighlights([]);
     } else {
+        renderPeriodSummary(campaigns);
         renderStats(calculateTotals(campaigns));
         renderCampaignsTable(campaigns);
         renderCharts(campaigns);
@@ -516,6 +582,15 @@ async function loadDashboard() {
 
         document.getElementById('lastUpdated').textContent =
             `Last updated: ${new Date().toLocaleTimeString()}`;
+
+        // Update subtitle with reporting period
+        const days = parseInt(dateRange);
+        const end = new Date();
+        const start = new Date(end - days * 86400000);
+        const fmtOpt = { month: 'short', day: 'numeric' };
+        const fmtOptYear = { month: 'short', day: 'numeric', year: 'numeric' };
+        document.querySelector('.subtitle').textContent =
+            `The Rock Church · ${start.toLocaleDateString('en-US', fmtOpt)} – ${end.toLocaleDateString('en-US', fmtOptYear)}`;
 
         loading.style.display = 'none';
         dashboard.style.display = 'block';
