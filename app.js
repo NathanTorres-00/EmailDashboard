@@ -559,8 +559,10 @@ function downloadReport() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 // Load dashboard on page load
