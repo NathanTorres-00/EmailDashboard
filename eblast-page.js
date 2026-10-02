@@ -1,5 +1,5 @@
 // Weekly Eblast Report — builds the rolling 4-week TRA Eblast Performance sheet from
-// Mailchimp (/api/eblast), lets you add attendance and notes, and exports the .xlsx.
+// Mailchimp (/api/eblast) and exports the .xlsx. Attendance and Notes are left blank to fill in.
 
 const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
 const TIME_ZONE = 'America/Los_Angeles';
@@ -11,7 +11,8 @@ const WEEK_CARD_ORDER = [
     { section: 'friday', kind: 'Friday invite' },
 ];
 
-let report = null; // last /api/eblast report response (rows are updated in place as you edit)
+let report = null;  // last /api/eblast report response
+const choices = {}; // row key → campaign ID, when a week has more than one matching send
 
 const $ = id => document.getElementById(id);
 
@@ -69,10 +70,6 @@ function allRows() {
     return report.sections.flatMap(s => s.rows);
 }
 
-function findRow(key) {
-    return allRows().find(r => r.key === key);
-}
-
 // Key of the row with the highest open rate across the whole report.
 function bestOpenKey() {
     let best = null;
@@ -81,10 +78,6 @@ function bestOpenKey() {
         if (rate != null && (!best || rate > best.rate)) best = { key: row.key, rate };
     }
     return best?.key || null;
-}
-
-function needsAttendance(row) {
-    return row.section === 'friday' && row.attendance == null && addDays(row.weekStart, 7) <= pacificToday();
 }
 
 // ---------- API ----------
@@ -153,33 +146,16 @@ function candidateSelect(row) {
 
 function renderTable() {
     const bestKey = bestOpenKey();
-    const canSave = report.storageConfigured;
 
     $('reportBody').innerHTML = report.sections.map(section => {
         const rows = section.rows.map(row => {
             const c = row.campaign;
-            const keyAttr = `data-key="${escapeHtml(row.key)}"`;
-
-            const attendanceCell = row.section === 'friday'
-                ? `<input class="attendance${needsAttendance(row) ? ' needs-input' : ''}" type="number" min="0" step="1" inputmode="numeric"
-                          ${keyAttr} value="${row.attendance ?? ''}" placeholder="${needsAttendance(row) ? 'Needed' : ''}"
-                          aria-label="Attendance for the weekend after ${escapeHtml(row.expectedDate)}">
-                   <span class="save-state" data-state="${escapeHtml(row.key)}:attendance"></span>`
-                : '';
-
-            const noteCell = `
-                <input class="note" type="text" maxlength="500" ${keyAttr} value="${escapeHtml(row.note)}"
-                       placeholder="${c ? 'Add a note' : 'Reason (optional)'}" aria-label="Note">
-                <span class="save-state" data-state="${escapeHtml(row.key)}:note"></span>`;
-
             if (!c) {
                 return `
                     <tr class="missing-row">
                         <td class="nowrap">${escapeHtml(formatLongDate(row.expectedDate))}</td>
                         <td></td><td></td><td></td><td></td><td></td>
-                        <td>${attendanceCell}</td>
-                        <td colspan="2">${escapeHtml(row.note || row.missingText)}</td>
-                        <td>${noteCell}</td>
+                        <td colspan="2">${escapeHtml(row.missingText)}</td>
                     </tr>`;
             }
 
@@ -191,18 +167,15 @@ function renderTable() {
                     <td class="num${row.key === bestKey ? ' best' : ''}">${opensText(c)}${row.key === bestKey ? ' 🎉' : ''}</td>
                     <td class="num">${formatNumber(c.uniqueClicks)}</td>
                     <td class="num">${formatNumber(c.teachingClicks)}</td>
-                    <td>${attendanceCell}</td>
                     <td class="copy">${escapeHtml(c.subject)}</td>
                     <td class="copy">${escapeHtml(c.previewText)}</td>
-                    <td>${noteCell}</td>
                 </tr>`;
         }).join('');
 
-        return `<tr class="section-row"><td colspan="10">${escapeHtml(section.label)}</td></tr>${rows}`;
+        return `<tr class="section-row"><td colspan="8">${escapeHtml(section.label)}</td></tr>${rows}`;
     }).join('');
 
     $('previewCount').textContent = `· ${formatShortDate(report.sections[0].rows[3].weekStart)} – ${formatShortDate(addDays(report.reportDate, -1))}`;
-    $('storageNotice').style.display = canSave ? 'none' : 'block';
 }
 
 function render() {
@@ -211,7 +184,7 @@ function render() {
     $('content').style.display = 'block';
 }
 
-// ---------- Loading & saving ----------
+// ---------- Loading ----------
 
 function setBusy(busy) {
     $('loading').style.display = busy ? 'block' : 'none';
@@ -229,7 +202,7 @@ async function loadReport() {
     $('error').style.display = 'none';
     setBusy(true);
     try {
-        report = await api({ action: 'report', reportDate });
+        report = await api({ action: 'report', reportDate, choices });
         render();
         $('status').textContent = `${report.account} · loaded ${new Date().toLocaleTimeString()}`;
     } catch (err) {
@@ -238,45 +211,6 @@ async function loadReport() {
         $('error').style.display = 'block';
     } finally {
         setBusy(false);
-    }
-}
-
-function showSaveState(key, field, text, cls) {
-    const el = document.querySelector(`[data-state="${CSS.escape(`${key}:${field}`)}"]`);
-    if (!el) return;
-    el.textContent = text;
-    el.className = `save-state ${cls || ''}`;
-}
-
-async function saveField(row, field, value) {
-    row[field] = value;
-    if (field === 'note' && !row.campaign) renderTable(); // the note doubles as the Subject text on missing rows
-    if (!report.storageConfigured) {
-        showSaveState(row.key, field, 'Not saved — storage not set up', 'err');
-        return;
-    }
-    showSaveState(row.key, field, 'Saving…');
-    try {
-        await api({ action: 'save', weekStart: row.weekStart, section: row.section, [field]: value });
-        showSaveState(row.key, field, 'Saved', 'ok');
-    } catch (err) {
-        showSaveState(row.key, field, err.message, 'err');
-    }
-}
-
-async function chooseCampaign(row, campaignId) {
-    if (report.storageConfigured) {
-        try {
-            await api({ action: 'save', weekStart: row.weekStart, section: row.section, campaignId });
-        } catch (err) {
-            $('error').innerHTML = `<strong>Couldn’t save your choice:</strong> ${escapeHtml(err.message)}`;
-            $('error').style.display = 'block';
-            return;
-        }
-        loadReport();
-    } else {
-        $('error').innerHTML = '<strong>Can’t switch campaigns yet:</strong> choosing between campaigns needs the storage set up so the choice can be remembered.';
-        $('error').style.display = 'block';
     }
 }
 
@@ -341,13 +275,8 @@ function buildWorkbook(ExcelJS) {
             cells[0].value = new Date(Date.UTC(y, m - 1, d));
             cells[0].numFmt = '[$-F800]dddd\\,\\ mmmm\\ dd\\,\\ yyyy';
 
-            if (row.section === 'friday' && row.attendance != null) {
-                cells[6].value = row.attendance;
-                cells[6].numFmt = '#,##0';
-            }
-
             if (!c) {
-                cells[7].value = row.note || row.missingText;
+                cells[7].value = row.missingText;
                 continue;
             }
 
@@ -362,7 +291,6 @@ function buildWorkbook(ExcelJS) {
             cells[5].value = c.teachingClicks;
             cells[7].value = c.subject;
             cells[8].value = c.previewText;
-            if (row.note) cells[9].value = row.note;
         }
     });
 
@@ -404,25 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
     $('controls').addEventListener('submit', e => { e.preventDefault(); loadReport(); });
     $('exportBtn').addEventListener('click', exportReport);
 
+    // Switching between two sends in the same week reloads the report with that choice.
     $('content').addEventListener('change', e => {
-        const el = e.target;
-        const row = el.dataset.key && report ? findRow(el.dataset.key) : null;
-        if (!row) return;
-
-        if (el.classList.contains('attendance')) {
-            const text = el.value.trim();
-            const value = text === '' ? null : Number(text);
-            if (value !== null && !(Number.isInteger(value) && value >= 0)) {
-                showSaveState(row.key, 'attendance', 'Enter a whole number', 'err');
-                return;
-            }
-            el.classList.toggle('needs-input', value === null && needsAttendance({ ...row, attendance: null }));
-            saveField(row, 'attendance', value);
-        } else if (el.classList.contains('note')) {
-            saveField(row, 'note', el.value.trim());
-        } else if (el.classList.contains('candidate')) {
-            chooseCampaign(row, el.value);
-        }
+        if (!e.target.classList.contains('candidate')) return;
+        choices[e.target.dataset.key] = e.target.value;
+        loadReport();
     });
 
     const requested = new URLSearchParams(location.search).get('date');

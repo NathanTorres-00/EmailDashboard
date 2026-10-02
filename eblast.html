@@ -20,8 +20,6 @@
             --accent-glow: rgba(34, 211, 238, 0.15);
             --accent-glow-strong: rgba(34, 211, 238, 0.25);
             --success: #4ade80;
-            --warning: #fbbf24;
-            --warning-bg: rgba(251, 191, 36, 0.1);
             --error: #f87171;
             --error-bg: rgba(248, 113, 113, 0.1);
         }
@@ -227,24 +225,15 @@
             100% { transform: rotate(360deg); }
         }
 
-        .error, .notice {
+        .error {
             padding: 14px 20px;
             border-radius: 12px;
             margin-bottom: 24px;
             font-size: 14px;
             line-height: 1.5;
-        }
-
-        .error {
             background: var(--error-bg);
             color: var(--error);
             border: 1px solid rgba(248, 113, 113, 0.3);
-        }
-
-        .notice {
-            background: var(--warning-bg);
-            color: var(--warning);
-            border: 1px solid rgba(251, 191, 36, 0.3);
         }
 
         .section-heading {
@@ -435,7 +424,6 @@
         }
 
         tr.missing-row td { color: var(--text-muted); font-style: italic; }
-        tr.missing-row td input { font-style: normal; }
 
         .best {
             background: rgba(250, 204, 21, 0.14);
@@ -443,12 +431,15 @@
             font-weight: 600;
         }
 
-        td input, td select {
+        select.candidate {
+            display: block;
             width: 100%;
-            padding: 7px 10px;
+            max-width: 240px;
+            margin-top: 6px;
+            padding: 5px 8px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             font-family: inherit;
             background: var(--bg-secondary);
             color: var(--text-primary);
@@ -456,45 +447,10 @@
             color-scheme: dark;
         }
 
-        td input:focus, td select:focus {
+        select.candidate:focus {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px var(--accent-glow);
         }
-
-        td input.attendance {
-            width: 96px;
-            text-align: right;
-        }
-
-        td input.needs-input {
-            border-color: rgba(251, 191, 36, 0.6);
-        }
-
-        td input.needs-input::placeholder { color: var(--warning); }
-
-        td input:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        td input.note { min-width: 160px; }
-
-        select.candidate {
-            display: block;
-            width: 100%;
-            max-width: 240px;
-            margin-top: 6px;
-            font-size: 12px;
-            padding: 5px 8px;
-        }
-
-        .save-state {
-            display: block;
-            font-size: 11px;
-            margin-top: 3px;
-            min-height: 14px;
-            color: var(--text-muted);
-        }
-
-        .save-state.ok { color: var(--success); }
-        .save-state.err { color: var(--error); }
 
         .footnote {
             color: var(--text-muted);
@@ -539,10 +495,6 @@
         </form>
 
         <div id="error" class="error" style="display:none;"></div>
-        <div id="storageNotice" class="notice" style="display:none;">
-            <strong>Attendance and notes can’t be saved yet.</strong>
-            A Vercel Blob store needs to be connected to this project (one-time setup). You can still type them in before exporting, but they won’t be remembered for next week.
-        </div>
 
         <div id="loading" class="loading" style="display:none;">
             <div class="spinner"></div>
@@ -566,10 +518,8 @@
                                 <th>Opens</th>
                                 <th>Unique Clicks</th>
                                 <th>Clicks on teaching</th>
-                                <th>Attendance</th>
                                 <th>Subject</th>
                                 <th>Preview Text</th>
-                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody id="reportBody"></tbody>
@@ -579,7 +529,7 @@
                     Recipients = emails sent minus bounces. Opens exclude Apple Mail Privacy Protection; the % is opens ÷ recipients.
                     Unique Clicks is Mailchimp’s unique clicks. Clicks on teaching counts each person once across all YouTube links.
                     Times are rounded to the nearest 15 minutes (Pacific). The best open rate is marked 🎉.
-                    Attendance and notes save automatically when you leave the field.
+                    The export leaves Attendance and Notes blank for you to fill in.
                 </div>
             </div>
         </div>

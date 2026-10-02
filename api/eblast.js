@@ -1,15 +1,12 @@
-// Vercel Serverless Function — TRA Eblast Performance (rolling 4 weeks)
-// Mailchimp is read-only here (GET requests only); attendance/notes are saved in Vercel Blob.
+// Vercel Serverless Function — TRA Eblast Performance (rolling 4 weeks, read-only GET requests to Mailchimp)
 //
-// POST /api/eblast { action: "report", reportDate: "YYYY-MM-DD" }
+// POST /api/eblast { action: "report", reportDate: "YYYY-MM-DD", choices?: { "<weekStart>:<section>": "<campaignId>" } }
 //   reportDate is a Sunday. The report covers the four Sunday–Saturday weeks before it;
-//   each week has a Sunday recap, a midweek resend and a Friday invite.
-// POST /api/eblast { action: "save", weekStart, section, attendance?, note?, campaignId? }
-//   Saves the manual inputs for one row (attendance applies to Friday rows only).
+//   each week has a Sunday recap, a midweek resend and a Friday invite. When more than one
+//   campaign matches a row the earliest is used, unless `choices` picks another.
 
 const { createClient, MailchimpError } = require('./_mailchimp');
 const { TIME_ZONE, pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
-const store = require('./_store');
 
 const WEEKS = 4;
 const DAY_MS = 86400000;
@@ -131,16 +128,9 @@ async function runLimited(tasks, limit) {
 
 // ---------- Report ----------
 
-async function buildReport(reportDate) {
+async function buildReport(reportDate, choices) {
     const mc = createClient();
-    const [campaigns, saved] = await Promise.all([
-        listCampaignsForReport(mc, reportDate),
-        store.readSaved().catch(err => {
-            console.error('Could not read saved report inputs:', err.message);
-            return {};
-        })
-    ]);
-    const savedRows = saved.rows || {};
+    const campaigns = await listCampaignsForReport(mc, reportDate);
 
     const weekStarts = Array.from({ length: WEEKS }, (_, k) => addDays(reportDate, -7 * (k + 1))); // newest first
 
@@ -149,14 +139,13 @@ async function buildReport(reportDate) {
         for (const weekStart of weekStarts) {
             const weekEnd = addDays(weekStart, 7);
             const key = `${weekStart}:${section.key}`;
-            const savedRow = savedRows[key] || {};
 
             const candidates = campaigns.filter(c => {
                 if (!c.send_time || !section.match.test(c.settings?.title || '')) return false;
                 const day = pacificDateKey.format(new Date(c.send_time));
                 return day >= weekStart && day < weekEnd;
             });
-            const chosen = candidates.find(c => c.id === savedRow.campaignId) || candidates[0] || null;
+            const chosen = candidates.find(c => c.id === choices[key]) || candidates[0] || null;
 
             slots.push({
                 key,
@@ -169,9 +158,7 @@ async function buildReport(reportDate) {
                     id: c.id,
                     title: c.settings?.title || '',
                     sendTime: formatSendTime(c.send_time).pacificDisplay
-                })),
-                attendance: section.key === 'friday' ? (savedRow.attendance ?? null) : undefined,
-                note: savedRow.note || ''
+                }))
             });
         }
     }
@@ -189,58 +176,12 @@ async function buildReport(reportDate) {
     return {
         account: mc.accountName,
         reportDate,
-        storageConfigured: store.isConfigured(),
         sections: SECTIONS.map(s => ({
             key: s.key,
             label: s.label,
             rows: rows.filter(r => r.section === s.key)
         }))
     };
-}
-
-// ---------- Saving manual inputs ----------
-
-async function saveRow(body) {
-    if (!store.isConfigured()) {
-        throw new MailchimpError('Saving is not set up yet: connect a Vercel Blob store to this project.', 503);
-    }
-
-    const { weekStart, section } = body;
-    if (typeof weekStart !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart) || !isSunday(weekStart)) {
-        throw new MailchimpError('weekStart must be a Sunday in YYYY-MM-DD format.', 400);
-    }
-    if (!SECTIONS.some(s => s.key === section)) throw new MailchimpError('Unknown section.', 400);
-
-    const update = {};
-    if ('attendance' in body) {
-        if (section !== 'friday') throw new MailchimpError('Attendance is recorded on Friday rows only.', 400);
-        const value = body.attendance;
-        if (value !== null && !(Number.isInteger(value) && value >= 0 && value <= 1000000)) {
-            throw new MailchimpError('Attendance must be a whole number.', 400);
-        }
-        update.attendance = value;
-    }
-    if ('note' in body) {
-        if (typeof body.note !== 'string' || body.note.length > 500) throw new MailchimpError('Notes are limited to 500 characters.', 400);
-        update.note = body.note.trim();
-    }
-    if ('campaignId' in body) {
-        if (body.campaignId !== null && !/^[a-z0-9]+$/i.test(body.campaignId)) throw new MailchimpError('Invalid campaign ID.', 400);
-        update.campaignId = body.campaignId;
-    }
-
-    const saved = await store.readSaved();
-    saved.rows = saved.rows || {};
-    const key = `${weekStart}:${section}`;
-    const row = { ...(saved.rows[key] || {}), ...update };
-    for (const field of Object.keys(row)) {
-        if (row[field] === null || row[field] === '') delete row[field];
-    }
-    if (Object.keys(row).length) saved.rows[key] = row;
-    else delete saved.rows[key];
-    await store.writeSaved(saved);
-
-    return { saved: saved.rows[key] || {} };
 }
 
 module.exports = async (req, res) => {
@@ -256,10 +197,11 @@ module.exports = async (req, res) => {
                 throw new MailchimpError('reportDate must be in YYYY-MM-DD format.', 400);
             }
             if (!isSunday(reportDate)) throw new MailchimpError('The report date must be a Sunday.', 400);
-            return res.status(200).json(await buildReport(reportDate));
-        }
-        if (body.action === 'save') {
-            return res.status(200).json(await saveRow(body));
+            const choices = body.choices && typeof body.choices === 'object' ? body.choices : {};
+            if (Object.values(choices).some(id => typeof id !== 'string' || !/^[a-z0-9]+$/i.test(id))) {
+                throw new MailchimpError('Invalid campaign choice.', 400);
+            }
+            return res.status(200).json(await buildReport(reportDate, choices));
         }
         throw new MailchimpError('Unknown action.', 400);
     } catch (error) {

@@ -9,8 +9,5 @@
   },
   "keywords": ["mailchimp", "dashboard", "analytics"],
   "author": "Nathan Torres - The Rock Church",
-  "license": "MIT",
-  "dependencies": {
-    "@vercel/blob": "^2.8.0"
-  }
+  "license": "MIT"
 }

@@ -22,7 +22,7 @@ A beautiful, real-time dashboard for viewing Mailchimp campaign performance.
 
 ## Weekly Eblast Report (`/eblast.html`)
 
-Builds the rolling 4-week **TRA Eblast Performance** sheet straight from The Rock Anaheim's Mailchimp account. There's nothing to upload: open the page, check the numbers, add attendance and notes, and export.
+Builds the rolling 4-week **TRA Eblast Performance** sheet straight from The Rock Anaheim's Mailchimp account. There's nothing to upload: open the page, check the numbers, and export. Run it on Saturday or Sunday, after Friday's invite has gone out.
 
 - **Report date:** pick a Sunday (it defaults to the coming Sunday). The report covers the four Sunday–Saturday weeks before it. Each week has a Sunday recap, a midweek resend and a Friday invite.
 - **Finding campaigns:** each week's campaigns are matched by title:
@@ -30,7 +30,7 @@ Builds the rolling 4-week **TRA Eblast Performance** sheet straight from The Roc
   - Sunday recap: starts with `Weekend Recap`
   - Resend: starts with `Resend: Weekend Recap`
 
-  A week with no match shows "No resend this week" (or similar). If more than one campaign matches, the earlier send is used and you can switch.
+  A week with no match shows "No resend this week" (or similar). If more than one campaign matches, the earlier send is used and you can switch to the other one on the page.
 - **This Week:** cards show the newest week's numbers.
 - **Report Preview:** mirrors the spreadsheet.
 - **Export .xlsx:** downloads `TRA_Eblast_Performance_4_weeks_MMDDYY.xlsx` in the same layout and formatting as the original sheet.
@@ -45,9 +45,7 @@ Builds the rolling 4-week **TRA Eblast Performance** sheet straight from The Roc
 | Unique Clicks | Mailchimp's unique clicks |
 | Clicks on teaching | Distinct people who clicked any YouTube link (youtube.com, youtu.be, m.youtube.com) |
 | Subject, Preview Text | From the campaign |
-| Attendance, Notes | Typed in on the page and saved |
-
-**Saving attendance and notes.** These are stored as a private JSON file in Vercel Blob, so you enter each number once. The page needs a Blob store connected to the project, which provides `BLOB_READ_WRITE_TOKEN`. Until one is connected, the report still loads and exports, but attendance and notes are not remembered.
+| Attendance, Notes | Left blank in the export for you to fill in |
 
 ## Campaign Report Page (`/report.html`)
 
