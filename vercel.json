@@ -1,5 +1,10 @@
 {
   "framework": null,
   "buildCommand": null,
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "functions": {
+    "api/eblast.js": {
+      "maxDuration": 60
+    }
+  }
 }

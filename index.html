@@ -74,6 +74,12 @@
             transition: border-color 0.2s, background 0.2s;
         }
 
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .nav-link:hover {
             border-color: var(--accent);
             background: var(--accent-glow);
@@ -845,7 +851,10 @@
                 <h1>Campaign Dashboard</h1>
                 <p class="subtitle">The Rock Church — Email Performance Analytics</p>
             </div>
-            <a class="nav-link" href="report.html">Campaign Report →</a>
+            <nav class="nav-links">
+                <a class="nav-link" href="eblast.html">Weekly Eblast Report →</a>
+                <a class="nav-link" href="report.html">Campaign Report →</a>
+            </nav>
         </header>
 
         <div class="controls">

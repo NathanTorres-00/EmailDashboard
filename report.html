@@ -94,6 +94,12 @@
             transition: border-color 0.2s, background 0.2s;
         }
 
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .nav-link:hover {
             border-color: var(--accent);
             background: var(--accent-glow);
@@ -639,7 +645,10 @@
                 <h1>Campaign Report</h1>
                 <p class="subtitle">The Rock Anaheim — single-campaign performance, links &amp; YouTube clicks</p>
             </div>
-            <a class="nav-link" href="/">← Dashboard</a>
+            <nav class="nav-links">
+                <a class="nav-link" href="/">← Dashboard</a>
+                <a class="nav-link" href="eblast.html">Weekly Eblast Report</a>
+            </nav>
         </header>
 
         <form class="controls" id="reportForm" novalidate>
