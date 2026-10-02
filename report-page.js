@@ -34,11 +34,11 @@ function safeHref(url) {
 
 // ---------- API ----------
 
-async function fetchReport(account, mode, value) {
+async function fetchReport(mode, value) {
     const response = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, mode, value })
+        body: JSON.stringify({ mode, value })
     });
     let data;
     try {
@@ -301,14 +301,13 @@ function showError(message) {
     $('error').style.display = 'block';
 }
 
-function syncUrl(account, mode, query, compareQuery) {
-    const params = new URLSearchParams({ account, mode, q: query });
+function syncUrl(mode, query, compareQuery) {
+    const params = new URLSearchParams({ mode, q: query });
     if (compareQuery) params.set('compare', compareQuery);
     history.replaceState(null, '', `${location.pathname}?${params}`);
 }
 
 async function runReport() {
-    const account = $('account').value;
     const mode = $('mode').value;
     const query = $('query').value.trim();
     const compareQuery = mode === 'date' ? '' : $('compareQuery').value.trim();
@@ -321,13 +320,13 @@ async function runReport() {
         return;
     }
 
-    syncUrl(account, mode, query, compareQuery);
+    syncUrl(mode, query, compareQuery);
     setBusy(true, mode === 'date' ? `Finding campaigns sent on ${query}...` : 'Loading campaign report...');
 
     try {
         const primary = picked.primary
-            ? await fetchReport(account, 'id', picked.primary)
-            : await fetchReport(account, mode, query);
+            ? await fetchReport('id', picked.primary)
+            : await fetchReport(mode, query);
 
         if (primary.candidates) {
             clearResults();
@@ -339,8 +338,8 @@ async function runReport() {
         if (compareQuery) {
             setBusy(true, 'Loading comparison campaign...');
             const other = picked.compare
-                ? await fetchReport(account, 'id', picked.compare)
-                : await fetchReport(account, 'title', compareQuery);
+                ? await fetchReport('id', picked.compare)
+                : await fetchReport('title', compareQuery);
             if (other.candidates) {
                 clearResults();
                 renderCandidates('compare', compareQuery, other);
@@ -487,7 +486,6 @@ function applyMode() {
 
 document.addEventListener('DOMContentLoaded', () => {
     $('mode').addEventListener('change', () => { picked.primary = null; picked.compare = null; applyMode(); });
-    $('account').addEventListener('change', () => { picked.primary = null; picked.compare = null; });
     $('query').addEventListener('input', () => { picked.primary = null; });
     $('compareQuery').addEventListener('input', () => { picked.compare = null; });
 
@@ -502,11 +500,8 @@ document.addEventListener('DOMContentLoaded', () => {
         runReport();
     });
 
-    // Shareable links: report.html?account=1&mode=title&q=...&compare=...
+    // Shareable links: report.html?mode=title&q=...&compare=...
     const params = new URLSearchParams(location.search);
-    if (params.get('account') && $('account').querySelector(`option[value="${CSS.escape(params.get('account'))}"]`)) {
-        $('account').value = params.get('account');
-    }
     if (MODE_LABELS[params.get('mode')]) $('mode').value = params.get('mode');
     applyMode();
     if (params.get('q')) $('query').value = params.get('q');

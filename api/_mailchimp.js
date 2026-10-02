@@ -1,18 +1,11 @@
 // Shared read-only Mailchimp helper for the report endpoint.
 // Files in /api starting with "_" are not deployed as functions by Vercel.
 //
-// Credentials per account (Vercel env vars, or .env for `vercel dev`):
-//   Account 1 (Solid Lives):       MAILCHIMP_API_KEY
-//   Account 2 (The Rock Network):  MAILCHIMP_API_KEY_2
-//   Account 3 (Jesus Disciple):    MAILCHIMP_API_KEY_3
-// The server prefix comes from the key suffix ("...-us21" → us21), falling
-// back to MAILCHIMP_SERVER[_N] if the key has no suffix.
+// Uses The Rock Anaheim Mailchimp account via MAILCHIMP_API_KEY (Vercel env
+// var, or .env for `vercel dev`). The server prefix comes from the key suffix
+// ("...-us21" → us21), falling back to MAILCHIMP_SERVER if the key has none.
 
-const ACCOUNTS = {
-    "1": { name: 'Solid Lives',      keyVar: 'MAILCHIMP_API_KEY',   serverVar: 'MAILCHIMP_SERVER'   },
-    "2": { name: 'The Rock Network', keyVar: 'MAILCHIMP_API_KEY_2', serverVar: 'MAILCHIMP_SERVER_2' },
-    "3": { name: 'Jesus Disciple',   keyVar: 'MAILCHIMP_API_KEY_3', serverVar: 'MAILCHIMP_SERVER_3' },
-};
+const ACCOUNT = { name: 'The Rock Anaheim', keyVar: 'MAILCHIMP_API_KEY', serverVar: 'MAILCHIMP_SERVER' };
 
 const MAX_RETRIES = 4;
 
@@ -23,10 +16,8 @@ class MailchimpError extends Error {
     }
 }
 
-function createClient(account) {
-    const config = ACCOUNTS[account];
-    if (!config) throw new MailchimpError(`Unknown account "${account}".`, 400);
-
+function createClient() {
+    const config = ACCOUNT;
     const key = process.env[config.keyVar];
     if (!key) {
         throw new MailchimpError(`No API key configured for ${config.name}. Set ${config.keyVar} in the environment.`, 500);
@@ -93,4 +84,4 @@ function createClient(account) {
     return { get, getAll, accountName: config.name };
 }
 
-module.exports = { createClient, MailchimpError, ACCOUNTS };
+module.exports = { createClient, MailchimpError };

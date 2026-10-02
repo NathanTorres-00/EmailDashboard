@@ -1,6 +1,6 @@
 // Vercel Serverless Function — single-campaign report (read-only, GET requests to Mailchimp only)
 //
-// POST /api/report  { account: "1"|"2"|"3", mode: "title"|"id"|"date", value: "..." }
+// POST /api/report  { mode: "title"|"id"|"date", value: "..." }  — The Rock Anaheim account
 //   mode "title" → exact internal title match, else partial case-insensitive match.
 //                  More than one match returns { candidates } so the page can ask which one.
 //   mode "id"    → report for that campaign ID.
@@ -184,11 +184,11 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { account = '1', mode, value } = req.body || {};
+        const { mode, value } = req.body || {};
         const query = typeof value === 'string' ? value.trim() : '';
         if (!query) throw new MailchimpError('Please enter a campaign title, ID, or date.', 400);
 
-        const mc = createClient(String(account));
+        const mc = createClient();
 
         let result;
         if (mode === 'title') {

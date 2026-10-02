@@ -38,19 +38,13 @@ A second page (linked from the dashboard header) that reports on a single sent c
 **Extras**
 - **Compare with:** enter a second title to see two campaigns side by side, such as an original and its Resend. Changes are shown as counts, percentages and percentage points.
 - **Download:** export the report as a CSV or JSON file.
-- **Shareable links:** the page URL keeps the search, e.g. `report.html?account=1&mode=title&q=Weekend%20Recap&compare=...`
+- **Shareable links:** the page URL keeps the search, e.g. `report.html?mode=title&q=Weekend%20Recap&compare=...`
 
-### API keys
+### API key
 
-The page uses the same Vercel environment variables as the dashboard. The server prefix (e.g. `us21`) is taken from the end of each key:
+The report page reads from **The Rock Anaheim** Mailchimp account using the `MAILCHIMP_API_KEY` environment variable in Vercel. The server prefix (e.g. `us21`) is taken from the end of the key.
 
-| Account | Variable |
-| --- | --- |
-| Solid Lives | `MAILCHIMP_API_KEY` |
-| The Rock Network | `MAILCHIMP_API_KEY_2` |
-| Jesus Disciple | `MAILCHIMP_API_KEY_3` |
-
-To run the page locally, copy `.env.example` to `.env`, fill in the keys, and run `vercel dev` (it loads `.env` automatically). `.env` is git-ignored, and the keys are only ever used on the server.
+To run the page locally, copy `.env.example` to `.env`, fill in the key, and run `vercel dev` (it loads `.env` automatically). `.env` is git-ignored, and the key is only ever used on the server.
 
 ## Deployment Instructions
 
