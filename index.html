@@ -55,6 +55,30 @@
             overflow: hidden;
         }
 
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: var(--accent);
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .nav-link:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
         header::before {
             content: '';
             position: absolute;
@@ -752,7 +776,7 @@
         @media print {
             @page { margin: 0.75in; }
             body { background: #fff; color: #111; padding: 0; }
-            .controls, #loading, #error, .tab-nav, .period-summary { display: none !important; }
+            .controls, #loading, #error, .tab-nav, .period-summary, .nav-link { display: none !important; }
             header {
                 background: #fff;
                 border: none;
@@ -816,9 +840,12 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Campaign Dashboard</h1>
-            <p class="subtitle">The Rock Church — Email Performance Analytics</p>
+        <header class="header-row">
+            <div>
+                <h1>Campaign Dashboard</h1>
+                <p class="subtitle">The Rock Church — Email Performance Analytics</p>
+            </div>
+            <a class="nav-link" href="report.html">Campaign Report →</a>
         </header>
 
         <div class="controls">

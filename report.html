@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Rock Church - Mailchimp Campaign Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #111113;
+            --bg-card: #16161a;
+            --border-color: #27272a;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #22d3ee;
+            --accent-glow: rgba(34, 211, 238, 0.15);
+            --accent-glow-strong: rgba(34, 211, 238, 0.25);
+            --success: #4ade80;
+            --error: #f87171;
+            --error-bg: rgba(248, 113, 113, 0.1);
+            --youtube: #f87171;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            padding: 24px;
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0d0d11 0%, #111116 50%, #0f0f13 100%);
+            padding: 32px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent) 0%, rgba(34,211,238,0.4) 40%, transparent 70%);
+        }
+
+        h1 {
+            color: var(--text-primary);
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .nav-link {
+            color: var(--accent);
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .nav-link:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        /* ---------- Controls ---------- */
+        .controls {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+            display: grid;
+            grid-template-columns: 180px 160px minmax(220px, 1fr) minmax(220px, 1fr);
+            gap: 16px;
+            align-items: end;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .field label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .field .hint {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .controls select,
+        .controls input {
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            outline: none;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color-scheme: dark;
+        }
+
+        .controls select { cursor: pointer; }
+
+        .controls select:hover,
+        .controls input:hover {
+            border-color: var(--text-muted);
+        }
+
+        .controls select:focus,
+        .controls input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .controls input:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .actions {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .actions button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            cursor: pointer;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .actions button:hover:not(:disabled) {
+            background: var(--accent-glow);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .actions button.primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .actions button.primary:hover:not(:disabled) {
+            background: #67e8f9;
+            box-shadow: 0 0 20px var(--accent-glow-strong);
+        }
+
+        .actions button:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .actions .status {
+            margin-left: auto;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ---------- Feedback ---------- */
+        .loading {
+            text-align: center;
+            padding: 80px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            color: var(--text-secondary);
+            font-size: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: var(--error-bg);
+            color: var(--error);
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 64px 24px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px dashed var(--border-color);
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .empty-state strong { color: var(--text-secondary); }
+
+        /* ---------- Candidates ---------- */
+        .panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-header h2 {
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .panel-header p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .pick-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .pick-btn:hover {
+            background: var(--accent-glow);
+        }
+
+        /* ---------- Tables ---------- */
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            white-space: nowrap;
+        }
+
+        td {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        th.num, td.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        tbody tr { transition: background 0.15s; }
+        tbody tr:hover { background: var(--bg-secondary); }
+        tbody tr:last-child td { border-bottom: none; }
+
+        tfoot td {
+            border-top: 1px solid var(--border-color);
+            border-bottom: none;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .url-cell {
+            max-width: 640px;
+            word-break: break-all;
+        }
+
+        .url-cell a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .url-cell a:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        .yt-tag {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--youtube);
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin-left: 8px;
+            vertical-align: 1px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .muted { color: var(--text-muted); }
+
+        .campaign-title {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        /* ---------- Report ---------- */
+        .report {
+            margin-bottom: 48px;
+        }
+
+        .report + .report {
+            padding-top: 40px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .report-head {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .report-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--accent);
+            background: var(--accent-glow);
+            border-radius: 4px;
+            padding: 3px 8px;
+            margin-bottom: 10px;
+        }
+
+        .report-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+
+        .report-subject {
+            color: var(--text-secondary);
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .report-preview {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px 24px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .meta-label {
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+        }
+
+        .meta-value {
+            color: var(--text-primary);
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .meta-value.secondary {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 2px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: rgba(34, 211, 238, 0.3);
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .stat-card h3 {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .stat-card .value {
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-card .breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .stat-card .breakdown strong {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-card-accent {
+            width: 28px;
+            height: 3px;
+            border-radius: 2px;
+            margin-bottom: 12px;
+            opacity: 0.9;
+        }
+
+        .section-heading {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-heading::before {
+            content: '';
+            display: inline-block;
+            width: 3px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .section-heading.youtube::before { background: var(--youtube); }
+
+        .section-heading .count {
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .yt-summary {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .yt-summary .meta-value {
+            font-size: 22px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .footnote {
+            color: var(--text-muted);
+            font-size: 12px;
+            padding: 12px 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* ---------- Compare ---------- */
+        .delta-up { color: var(--success); font-weight: 600; }
+        .delta-down { color: var(--error); font-weight: 600; }
+        .delta-flat { color: var(--text-muted); }
+
+        .compare-col-title {
+            display: block;
+            color: var(--text-primary);
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: normal;
+            margin: 4px 0 0 auto;
+            max-width: 280px;
+            text-align: right;
+        }
+
+        @media (max-width: 960px) {
+            .controls {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 16px; }
+            header { padding: 24px; }
+            .controls { grid-template-columns: 1fr; }
+            .actions .status { margin-left: 0; width: 100%; }
+            th, td { padding: 10px 12px; }
+            td { font-size: 13px; }
+            .stat-card .value { font-size: 26px; }
+        }
+
+        @media print {
+            body { background: #fff; color: #111; padding: 0; }
+            .controls, .nav-link, .pick-btn { display: none !important; }
+            header, .report-head, .stat-card, .panel { background: #fff; border-color: #ddd; box-shadow: none; }
+            h1, .report-title, .stat-card .value, .meta-value, .campaign-title, .url-cell a { color: #111; }
+            th { background: #f5f5f5; color: #555; }
+            td { color: #333; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Campaign Report</h1>
+                <p class="subtitle">The Rock Church — single-campaign performance, links &amp; YouTube clicks</p>
+            </div>
+            <a class="nav-link" href="/">← Dashboard</a>
+        </header>
+
+        <form class="controls" id="reportForm" novalidate>
+            <div class="field">
+                <label for="account">Account</label>
+                <select id="account">
+                    <option value="1">Solid Lives</option>
+                    <option value="2">The Rock Network</option>
+                    <option value="3">Jesus Disciple</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="mode">Find by</label>
+                <select id="mode">
+                    <option value="title">Campaign title</option>
+                    <option value="id">Campaign ID</option>
+                    <option value="date">Send date (Pacific)</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="query" id="queryLabel">Campaign title</label>
+                <input id="query" type="text" autocomplete="off"
+                       placeholder="Resend: Weekend Recap 9/27/26 (Jerry)">
+            </div>
+            <div class="field" id="compareField">
+                <label for="compareQuery">Compare with <span class="hint">(optional title)</span></label>
+                <input id="compareQuery" type="text" autocomplete="off"
+                       placeholder="Weekend Recap 9/27/26 (Jerry)">
+            </div>
+            <div class="actions">
+                <button type="submit" class="primary" id="runBtn">Run Report</button>
+                <button type="button" id="csvBtn" disabled>Download CSV</button>
+                <button type="button" id="jsonBtn" disabled>Download JSON</button>
+                <span class="status" id="status"></span>
+            </div>
+        </form>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loadingText">Loading campaign report...</p>
+        </div>
+
+        <div id="candidates"></div>
+
+        <div id="results">
+            <div class="empty-state">
+                <strong>Look up a sent campaign</strong><br>
+                Search by its internal title (exact or partial), its campaign ID, or a send date to see every campaign sent that day.<br>
+                Add a second title under “Compare with” to see two campaigns side by side, such as an original and its Resend.
+            </div>
+        </div>
+    </div>
+
+    <script src="report-page.js"></script>
+</body>
+</html>

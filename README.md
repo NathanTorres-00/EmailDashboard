@@ -20,6 +20,38 @@ A beautiful, real-time dashboard for viewing Mailchimp campaign performance.
 - Abuse Reports
 - Forwards
 
+## Campaign Report Page (`/report.html`)
+
+A second page (linked from the dashboard header) that reports on a single sent campaign. It only **reads** from Mailchimp: every call to the Mailchimp API is a GET request, and nothing in Mailchimp is ever changed.
+
+**Find a campaign by:**
+- **Campaign title**: an exact match on the internal title (e.g. `Resend: Weekend Recap 9/27/26 (Jerry)`). If there's no exact match it falls back to a partial, case-insensitive match. If several campaigns match, it lists them so you can pick one.
+- **Campaign ID**: the Mailchimp campaign ID.
+- **Send date**: every campaign sent on that day (Pacific time), with a full report for each.
+
+**Each report shows:**
+- **Details:** title, subject line, preview text, send time (Pacific and UTC), audience, and segment.
+- **Metrics:** emails sent; total opens, unique opens and open rate; total clicks, unique clicks and click rate; hard and soft bounces; unsubscribes.
+- **Link clicks:** every clicked link, with total and unique clicks plus each link's share of all clicks and of unique clicks.
+- **YouTube links:** clicks on youtube.com, youtu.be and m.youtube.com, with per-link and combined totals.
+
+**Extras**
+- **Compare with:** enter a second title to see two campaigns side by side, such as an original and its Resend. Changes are shown as counts, percentages and percentage points.
+- **Download:** export the report as a CSV or JSON file.
+- **Shareable links:** the page URL keeps the search, e.g. `report.html?account=1&mode=title&q=Weekend%20Recap&compare=...`
+
+### API keys
+
+The page uses the same Vercel environment variables as the dashboard. The server prefix (e.g. `us21`) is taken from the end of each key:
+
+| Account | Variable |
+| --- | --- |
+| Solid Lives | `MAILCHIMP_API_KEY` |
+| The Rock Network | `MAILCHIMP_API_KEY_2` |
+| Jesus Disciple | `MAILCHIMP_API_KEY_3` |
+
+To run the page locally, copy `.env.example` to `.env`, fill in the keys, and run `vercel dev` (it loads `.env` automatically). `.env` is git-ignored, and the keys are only ever used on the server.
+
 ## Deployment Instructions
 
 ### Option 1: Deploy to Vercel (Recommended - Free)
