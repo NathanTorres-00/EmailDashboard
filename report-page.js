@@ -55,19 +55,24 @@ async function fetchReport(mode, value) {
 function renderMetrics(r) {
     const cards = [
         {
-            title: 'Emails Sent', accent: '#22d3ee',
-            value: formatNumber(r.emailsSent),
-            rows: [['Recipients', formatNumber(r.emailsSent)]]
+            title: 'Recipients', accent: '#22d3ee',
+            value: formatNumber(r.recipients),
+            rows: [['Emails sent', formatNumber(r.emailsSent)], ['Minus bounces', formatNumber(r.bounces.hard + r.bounces.soft)]]
         },
         {
             title: 'Opens', accent: '#4ade80',
-            value: formatPercent(r.opens.rate),
-            rows: [['Open rate', formatPercent(r.opens.rate)], ['Unique opens', formatNumber(r.opens.unique)], ['Total opens', formatNumber(r.opens.total)]]
+            value: formatNumber(r.opens.unique),
+            rows: [['Open rate', formatPercent(r.opens.rate)], ['Total opens', formatNumber(r.opens.total)]]
         },
         {
-            title: 'Clicks', accent: '#a78bfa',
-            value: formatPercent(r.clicks.rate),
-            rows: [['Click rate', formatPercent(r.clicks.rate)], ['Unique clicks', formatNumber(r.clicks.unique)], ['Total clicks', formatNumber(r.clicks.total)]]
+            title: 'Unique Clicks', accent: '#a78bfa',
+            value: formatNumber(r.clicks.unique),
+            rows: [['Click rate', formatPercent(r.clicks.rate)], ['Total clicks', formatNumber(r.clicks.total)]]
+        },
+        {
+            title: 'Clicks on Teaching', accent: '#f87171',
+            value: formatNumber(r.youtube.uniqueClicks),
+            rows: [['YouTube links clicked', formatNumber(r.youtube.links.length)]]
         },
         {
             title: 'Bounces', accent: '#fb923c',
@@ -75,7 +80,7 @@ function renderMetrics(r) {
             rows: [['Hard bounces', formatNumber(r.bounces.hard)], ['Soft bounces', formatNumber(r.bounces.soft)]]
         },
         {
-            title: 'Unsubscribes', accent: '#f87171',
+            title: 'Unsubscribes', accent: '#71717a',
             value: formatNumber(r.unsubscribes),
             rows: [['Unsubscribed', formatNumber(r.unsubscribes)]]
         }
@@ -88,7 +93,8 @@ function renderMetrics(r) {
             <div class="value">${c.value}</div>
             <div class="breakdown">${c.rows.map(([label, val]) => `<span>${label}: <strong>${val}</strong></span>`).join('')}</div>
         </div>`).join('')}
-    </div>`;
+    </div>
+    <p class="metrics-note">Same numbers as the weekly TRA sheet: recipients are emails sent minus bounces, opens exclude Apple Mail Privacy Protection, unique clicks are Mailchimp’s unique clicks, and rates are a % of recipients.</p>`;
 }
 
 function linkCell(link) {
@@ -134,7 +140,7 @@ function renderYouTube(r) {
         body = `
             <div class="yt-summary">
                 <div><div class="meta-label">YouTube total clicks</div><div class="meta-value">${formatNumber(yt.totalClicks)}</div></div>
-                <div><div class="meta-label">YouTube unique clicks</div><div class="meta-value">${formatNumber(yt.uniqueClicks)}</div></div>
+                <div><div class="meta-label">People who clicked (teaching)</div><div class="meta-value">${formatNumber(yt.uniqueClicks)}</div></div>
                 <div><div class="meta-label">YouTube links clicked</div><div class="meta-value">${yt.links.length}</div></div>
             </div>
             <div class="table-wrap"><table>
@@ -151,12 +157,12 @@ function renderYouTube(r) {
                     </tr>`).join('')}
                 </tbody>
                 <tfoot><tr>
-                    <td>Combined YouTube total</td>
+                    <td>Combined YouTube total (each person once)</td>
                     <td class="num">${formatNumber(yt.totalClicks)}</td>
                     <td class="num">${formatNumber(yt.uniqueClicks)}</td>
                 </tr></tfoot>
             </table></div>
-            ${yt.links.length > 1 ? '<div class="footnote">Combined unique clicks add up each link’s unique clicks, so someone who clicked two different YouTube links counts twice.</div>' : ''}`;
+            ${yt.links.length > 1 ? '<div class="footnote">The combined unique figure counts each person once, even if they clicked more than one YouTube link, so it can be lower than the column total. It matches “Clicks on teaching” on the weekly sheet.</div>' : ''}`;
     }
 
     return `
@@ -197,7 +203,7 @@ function renderReport(r, badge) {
 
 function compareRows(a, b) {
     return [
-        { label: 'Emails sent',           a: a.emailsSent,           b: b.emailsSent },
+        { label: 'Recipients',            a: a.recipients,           b: b.recipients },
         { label: 'Total opens',           a: a.opens.total,          b: b.opens.total },
         { label: 'Unique opens',          a: a.opens.unique,         b: b.opens.unique },
         { label: 'Open rate',             a: a.opens.rate,           b: b.opens.rate, rate: true },
@@ -205,7 +211,7 @@ function compareRows(a, b) {
         { label: 'Unique clicks',         a: a.clicks.unique,        b: b.clicks.unique },
         { label: 'Click rate',            a: a.clicks.rate,          b: b.clicks.rate, rate: true },
         { label: 'YouTube total clicks',  a: a.youtube.totalClicks,  b: b.youtube.totalClicks },
-        { label: 'YouTube unique clicks', a: a.youtube.uniqueClicks, b: b.youtube.uniqueClicks },
+        { label: 'Clicks on teaching',    a: a.youtube.uniqueClicks, b: b.youtube.uniqueClicks },
         { label: 'Hard bounces',          a: a.bounces.hard,         b: b.bounces.hard, lowerIsBetter: true },
         { label: 'Soft bounces',          a: a.bounces.soft,         b: b.bounces.soft, lowerIsBetter: true },
         { label: 'Unsubscribes',          a: a.unsubscribes,         b: b.unsubscribes, lowerIsBetter: true },
@@ -427,8 +433,9 @@ function reportToCsvRows(r, label) {
         ['Segment', r.segmentText || 'Entire audience'],
         ['Campaign ID', r.id],
         ['Emails sent', r.emailsSent],
-        ['Total opens', r.opens.total],
-        ['Unique opens', r.opens.unique],
+        ['Recipients (sent minus bounces)', r.recipients],
+        ['Total opens (excl. Apple MPP)', r.opens.total],
+        ['Unique opens (excl. Apple MPP)', r.opens.unique],
         ['Open rate', formatPercent(r.opens.rate)],
         ['Total clicks', r.clicks.total],
         ['Unique clicks', r.clicks.unique],
@@ -441,7 +448,7 @@ function reportToCsvRows(r, label) {
         ...r.links.map(l => [l.url, l.totalClicks, l.uniqueClicks, formatPercent(l.shareOfClicks), formatPercent(l.shareOfUniqueClicks), l.isYouTube ? 'Yes' : '']),
         [],
         ['YouTube total clicks', r.youtube.totalClicks],
-        ['YouTube unique clicks', r.youtube.uniqueClicks],
+        ['Clicks on teaching (people)', r.youtube.uniqueClicks],
         [], []
     ];
     return rows;

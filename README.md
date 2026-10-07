@@ -60,9 +60,9 @@ A second page (linked from the dashboard header) that reports on a single sent c
 
 **Each report shows:**
 - **Details:** title, subject line, preview text, send time (Pacific and UTC), audience, and segment.
-- **Metrics:** emails sent; total opens, unique opens and open rate; total clicks, unique clicks and click rate; hard and soft bounces; unsubscribes.
+- **Metrics:** the same numbers as the weekly TRA sheet: recipients (emails sent minus bounces), opens excluding Apple Mail Privacy Protection, Mailchimp's unique clicks, and clicks on teaching (people who clicked any YouTube link). Rates are a % of recipients. Also shows total opens and clicks, hard and soft bounces, and unsubscribes.
 - **Link clicks:** every clicked link, with total and unique clicks plus each link's share of all clicks and of unique clicks.
-- **YouTube links:** clicks on youtube.com, youtu.be and m.youtube.com, with per-link and combined totals.
+- **YouTube links:** clicks on youtube.com, youtu.be and m.youtube.com, per link, with a combined unique figure that counts each person once.
 
 **Extras**
 - **Compare with:** enter a second title to see two campaigns side by side, such as an original and its Resend. Changes are shown as counts, percentages and percentage points.

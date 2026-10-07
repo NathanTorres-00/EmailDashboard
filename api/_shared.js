@@ -44,4 +44,21 @@ function isYouTube(url) {
     return YOUTUBE_HOSTS.includes(host);
 }
 
-module.exports = { TIME_ZONE, WEEKLY_EMAIL_PATTERNS, pacificDateKey, pacificDisplay, utcDisplay, formatSendTime, isYouTube };
+// Number of distinct subscribers who clicked any of the given click-details links.
+async function countUniqueClickers(mc, campaignId, links) {
+    const people = new Set();
+    for (const link of links) {
+        const members = await mc.getAll(
+            `/reports/${encodeURIComponent(campaignId)}/click-details/${encodeURIComponent(link.id)}/members`,
+            'members',
+            { fields: 'members.email_id,total_items' }
+        );
+        members.forEach(m => people.add(m.email_id));
+    }
+    return people.size;
+}
+
+module.exports = {
+    TIME_ZONE, WEEKLY_EMAIL_PATTERNS, pacificDateKey, pacificDisplay, utcDisplay,
+    formatSendTime, isYouTube, countUniqueClickers
+};

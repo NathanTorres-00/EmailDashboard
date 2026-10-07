@@ -6,7 +6,7 @@
 //   campaign matches a row the earliest is used, unless `choices` picks another.
 
 const { createClient, MailchimpError } = require('./_mailchimp');
-const { TIME_ZONE, WEEKLY_EMAIL_PATTERNS, pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
+const { TIME_ZONE, WEEKLY_EMAIL_PATTERNS, pacificDateKey, formatSendTime, isYouTube, countUniqueClickers } = require('./_shared');
 
 const WEEKS = 4;
 const DAY_MS = 86400000;
@@ -57,20 +57,6 @@ async function listCampaignsForReport(mc, reportDate) {
         before_send_time: parseDay(addDays(reportDate, 1)).toISOString(),
         fields: 'campaigns.id,campaigns.send_time,campaigns.settings.title,campaigns.settings.subject_line,campaigns.settings.preview_text,total_items'
     });
-}
-
-// Number of distinct subscribers who clicked any of the given links.
-async function countUniqueClickers(mc, campaignId, links) {
-    const people = new Set();
-    for (const link of links) {
-        const members = await mc.getAll(
-            `/reports/${encodeURIComponent(campaignId)}/click-details/${encodeURIComponent(link.id)}/members`,
-            'members',
-            { fields: 'members.email_id,total_items' }
-        );
-        members.forEach(m => people.add(m.email_id));
-    }
-    return people.size;
 }
 
 async function campaignMetrics(mc, campaign) {

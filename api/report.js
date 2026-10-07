@@ -10,7 +10,7 @@
 // Success returns { reports: [...] }.
 
 const { createClient, MailchimpError } = require('./_mailchimp');
-const { WEEKLY_EMAIL_PATTERNS, pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
+const { WEEKLY_EMAIL_PATTERNS, pacificDateKey, formatSendTime, isYouTube, countUniqueClickers } = require('./_shared');
 
 const LATEST_EMAILS = [
     { key: 'recap',  label: 'Sunday recap' },
@@ -54,7 +54,7 @@ async function buildReport(mc, campaignId) {
             fields: 'id,emails_sent,opens,clicks,bounces,unsubscribed'
         }),
         mc.getAll(`/reports/${id}/click-details`, 'urls_clicked', {
-            fields: 'urls_clicked.url,urls_clicked.total_clicks,urls_clicked.unique_clicks,total_items'
+            fields: 'urls_clicked.id,urls_clicked.url,urls_clicked.total_clicks,urls_clicked.unique_clicks,total_items'
         })
     ]);
 
@@ -64,6 +64,7 @@ async function buildReport(mc, campaignId) {
 
     const links = linkItems
         .map(l => ({
+            id: l.id,
             url: l.url,
             totalClicks: l.total_clicks || 0,
             uniqueClicks: l.unique_clicks || 0,
@@ -74,6 +75,15 @@ async function buildReport(mc, campaignId) {
         .sort((a, b) => b.totalClicks - a.totalClicks || b.uniqueClicks - a.uniqueClicks);
 
     const youtubeLinks = links.filter(l => l.isYouTube);
+    const youtubeUniqueClickers = await countUniqueClickers(mc, campaignId, youtubeLinks.filter(l => l.uniqueClicks > 0));
+
+    // Same definitions as the weekly TRA sheet: recipients exclude bounces, opens exclude
+    // Apple Mail Privacy Protection, clicks are Mailchimp's unique clicks, rates are % of recipients.
+    const emailsSent = report.emails_sent || 0;
+    const recipients = emailsSent - (report.bounces?.hard_bounces || 0) - (report.bounces?.soft_bounces || 0);
+    const uniqueOpens = report.opens?.proxy_excluded_unique_opens ?? report.opens?.unique_opens ?? 0;
+    const uniqueClicks = report.clicks?.unique_clicks || 0;
+    const rate = n => (recipients > 0 ? n / recipients : 0);
 
     return {
         id: campaign.id,
@@ -84,16 +94,17 @@ async function buildReport(mc, campaignId) {
         sendTime: formatSendTime(campaign.send_time),
         audience: campaign.recipients?.list_name || '',
         segmentText: stripHtml(campaign.recipients?.segment_text),
-        emailsSent: report.emails_sent || 0,
+        emailsSent,
+        recipients,
         opens: {
-            total: report.opens?.opens_total || 0,
-            unique: report.opens?.unique_opens || 0,
-            rate: report.opens?.open_rate || 0
+            total: report.opens?.proxy_excluded_opens ?? report.opens?.opens_total ?? 0,
+            unique: uniqueOpens,
+            rate: rate(uniqueOpens)
         },
         clicks: {
             total: report.clicks?.clicks_total || 0,
-            unique: report.clicks?.unique_subscriber_clicks || 0,
-            rate: report.clicks?.click_rate || 0
+            unique: uniqueClicks,
+            rate: rate(uniqueClicks)
         },
         bounces: {
             hard: report.bounces?.hard_bounces || 0,
@@ -104,7 +115,7 @@ async function buildReport(mc, campaignId) {
         youtube: {
             links: youtubeLinks,
             totalClicks: youtubeLinks.reduce((sum, l) => sum + l.totalClicks, 0),
-            uniqueClicks: youtubeLinks.reduce((sum, l) => sum + l.uniqueClicks, 0)
+            uniqueClicks: youtubeUniqueClickers // distinct people, matching "Clicks on teaching"
         }
     };
 }
