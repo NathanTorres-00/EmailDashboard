@@ -6,7 +6,7 @@
 //   campaign matches a row the earliest is used, unless `choices` picks another.
 
 const { createClient, MailchimpError } = require('./_mailchimp');
-const { TIME_ZONE, pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
+const { TIME_ZONE, WEEKLY_EMAIL_PATTERNS, pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
 
 const WEEKS = 4;
 const DAY_MS = 86400000;
@@ -14,9 +14,9 @@ const DAY_MS = 86400000;
 // Display order matches the spreadsheet. `offset` = days after the week's Sunday
 // the email normally goes out (used to date a row when no campaign was sent).
 const SECTIONS = [
-    { key: 'friday', label: 'Fridays/Saturdays',               match: /^\s*personal invite from pastor/i,   offset: 5, missing: 'No Friday invite this week' },
-    { key: 'recap',  label: 'Sundays/Mondays',                 match: /^\s*weekend recap/i,                 offset: 0, missing: 'No Sunday recap this week' },
-    { key: 'resend', label: 'Midweek Resends (Sunday recaps)', match: /^\s*resend:\s*weekend recap/i,       offset: 2, missing: 'No resend this week' },
+    { key: 'friday', label: 'Fridays/Saturdays',               match: WEEKLY_EMAIL_PATTERNS.friday, offset: 5, missing: 'No Friday invite this week' },
+    { key: 'recap',  label: 'Sundays/Mondays',                 match: WEEKLY_EMAIL_PATTERNS.recap,  offset: 0, missing: 'No Sunday recap this week' },
+    { key: 'resend', label: 'Midweek Resends (Sunday recaps)', match: WEEKLY_EMAIL_PATTERNS.resend, offset: 2, missing: 'No resend this week' },
 ];
 
 const pacificClock = new Intl.DateTimeFormat('en-US', {

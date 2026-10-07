@@ -7,7 +7,7 @@ const MODE_LABELS = {
     date:  { label: 'Send date',      placeholder: '' },
 };
 
-let currentResult = null;          // { account, reports, compare } of the last rendered report
+let currentResult = null;          // { account, reports, compare, labels?, missing? } of the last rendered report
 const picked = { primary: null, compare: null }; // campaign IDs chosen from a candidates list
 
 const $ = id => document.getElementById(id);
@@ -292,6 +292,7 @@ function setBusy(busy, text) {
     $('loadingText').textContent = text || 'Loading campaign report...';
     $('runBtn').disabled = busy;
     $('runBtn').textContent = busy ? 'Loading...' : 'Run Report';
+    $('latestBtn').disabled = busy;
     $('csvBtn').disabled = busy || !currentResult;
     $('jsonBtn').disabled = busy || !currentResult;
 }
@@ -357,6 +358,25 @@ async function runReport() {
     }
 }
 
+// Default view: the most recent Sunday recap, Tuesday resend and Friday invite.
+async function runLatest() {
+    $('error').style.display = 'none';
+    $('candidates').innerHTML = '';
+    history.replaceState(null, '', location.pathname);
+    setBusy(true, 'Loading the latest Sunday, Tuesday and Friday emails...');
+
+    try {
+        const data = await fetchReport('latest', '');
+        currentResult = { account: data.account, reports: data.reports, compare: null, labels: data.labels, missing: data.missing };
+        renderResults();
+    } catch (err) {
+        clearResults();
+        showError(err.message);
+    } finally {
+        setBusy(false);
+    }
+}
+
 function clearResults() {
     currentResult = null;
     $('results').innerHTML = '';
@@ -364,10 +384,16 @@ function clearResults() {
 }
 
 function renderResults() {
-    const { reports, compare, account } = currentResult;
+    const { reports, compare, account, labels, missing } = currentResult;
     let html = '';
 
-    if (compare) {
+    if (missing?.length) {
+        html += `<div class="empty-state" style="margin-bottom:24px;padding:16px 24px;">No ${escapeHtml(missing.join(' or ').toLowerCase())} was sent in the last 3 weeks.</div>`;
+    }
+
+    if (labels) {
+        html += reports.map((r, i) => renderReport(r, labels[i])).join('');
+    } else if (compare) {
         html += renderComparison(reports[0], compare);
         html += renderReport(reports[0], 'Campaign A');
         html += renderReport(compare, 'Campaign B');
@@ -378,7 +404,8 @@ function renderResults() {
     $('results').innerHTML = html;
 
     const count = reports.length + (compare ? 1 : 0);
-    $('status').textContent = `${account} · ${count} campaign${count === 1 ? '' : 's'} · loaded ${new Date().toLocaleTimeString()}`;
+    const what = labels ? 'latest weekly emails' : `${count} campaign${count === 1 ? '' : 's'}`;
+    $('status').textContent = `${account} · ${what} · loaded ${new Date().toLocaleTimeString()}`;
 }
 
 // ---------- Downloads ----------
@@ -433,6 +460,7 @@ function download(filename, content, type) {
 }
 
 function fileBaseName() {
+    if (currentResult.labels) return `campaign-report-latest-weekly-${new Date().toISOString().slice(0, 10)}`;
     const first = currentResult.reports[0];
     const slug = (first.title || first.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
     return `campaign-report-${slug || first.id}`;
@@ -440,7 +468,7 @@ function fileBaseName() {
 
 function downloadCsv() {
     if (!currentResult) return;
-    const { reports, compare } = currentResult;
+    const { reports, compare, labels } = currentResult;
     let rows = [];
 
     if (compare) {
@@ -452,7 +480,7 @@ function downloadCsv() {
         rows.push([], []);
         rows = rows.concat(reportToCsvRows(reports[0], 'Campaign A'), reportToCsvRows(compare, 'Campaign B'));
     } else {
-        reports.forEach((r, i) => { rows = rows.concat(reportToCsvRows(r, `Campaign ${i + 1}`)); });
+        reports.forEach((r, i) => { rows = rows.concat(reportToCsvRows(r, labels ? labels[i] : `Campaign ${i + 1}`)); });
     }
 
     const csv = rows.map(r => r.map(csvCell).join(',')).join('\n');
@@ -490,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('compareQuery').addEventListener('input', () => { picked.compare = null; });
 
     $('reportForm').addEventListener('submit', e => { e.preventDefault(); runReport(); });
+    $('latestBtn').addEventListener('click', runLatest);
     $('csvBtn').addEventListener('click', downloadCsv);
     $('jsonBtn').addEventListener('click', downloadJson);
 
@@ -507,4 +536,5 @@ document.addEventListener('DOMContentLoaded', () => {
     if (params.get('q')) $('query').value = params.get('q');
     if (params.get('compare')) $('compareQuery').value = params.get('compare');
     if (params.get('q')) runReport();
+    else runLatest();
 });

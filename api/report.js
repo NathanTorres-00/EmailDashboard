@@ -5,10 +5,19 @@
 //                  More than one match returns { candidates } so the page can ask which one.
 //   mode "id"    → report for that campaign ID.
 //   mode "date"  → report for every campaign sent on that YYYY-MM-DD (Pacific time).
+//   mode "latest" → the most recent Sunday recap, Tuesday resend and Friday invite (no value needed),
+//                  in send order, with a matching `labels` array.
 // Success returns { reports: [...] }.
 
 const { createClient, MailchimpError } = require('./_mailchimp');
-const { pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
+const { WEEKLY_EMAIL_PATTERNS, pacificDateKey, formatSendTime, isYouTube } = require('./_shared');
+
+const LATEST_EMAILS = [
+    { key: 'recap',  label: 'Sunday recap' },
+    { key: 'resend', label: 'Tuesday resend' },
+    { key: 'friday', label: 'Friday invite' },
+];
+const LATEST_LOOKBACK_DAYS = 21;
 
 function stripHtml(text) {
     return (text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
@@ -142,6 +151,28 @@ async function findByDate(mc, date) {
     return { reports: await buildReports(mc, onDate.map(c => c.id)) };
 }
 
+async function findLatestWeekly(mc) {
+    const since = new Date(Date.now() - LATEST_LOOKBACK_DAYS * 86400000);
+    const campaigns = await listSentCampaigns(mc, { since_send_time: since.toISOString() }); // newest first
+
+    const found = LATEST_EMAILS
+        .map(email => ({
+            ...email,
+            campaign: campaigns.find(c => WEEKLY_EMAIL_PATTERNS[email.key].test(c.settings?.title || ''))
+        }))
+        .filter(email => email.campaign)
+        .sort((a, b) => a.campaign.send_time.localeCompare(b.campaign.send_time));
+
+    if (!found.length) {
+        throw new MailchimpError(`No Sunday recap, Tuesday resend or Friday invite was sent in the last ${LATEST_LOOKBACK_DAYS} days.`, 404);
+    }
+    return {
+        reports: await buildReports(mc, found.map(f => f.campaign.id)),
+        labels: found.map(f => f.label),
+        missing: LATEST_EMAILS.filter(e => !found.some(f => f.key === e.key)).map(e => e.label)
+    };
+}
+
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -150,12 +181,14 @@ module.exports = async (req, res) => {
     try {
         const { mode, value } = req.body || {};
         const query = typeof value === 'string' ? value.trim() : '';
-        if (!query) throw new MailchimpError('Please enter a campaign title, ID, or date.', 400);
+        if (!query && mode !== 'latest') throw new MailchimpError('Please enter a campaign title, ID, or date.', 400);
 
         const mc = createClient();
 
         let result;
-        if (mode === 'title') {
+        if (mode === 'latest') {
+            result = await findLatestWeekly(mc);
+        } else if (mode === 'title') {
             result = await findByTitle(mc, query);
         } else if (mode === 'id') {
             if (!/^[a-z0-9]+$/i.test(query)) throw new MailchimpError('Campaign IDs contain only letters and numbers.', 400);

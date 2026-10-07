@@ -51,6 +51,8 @@ Builds the rolling 4-week **TRA Eblast Performance** sheet straight from The Roc
 
 A second page (linked from the dashboard header) that reports on a single sent campaign. It only **reads** from Mailchimp: every call to the Mailchimp API is a GET request, and nothing in Mailchimp is ever changed.
 
+**When you open it**, the page loads full reports for the latest **Sunday recap**, **Tuesday resend** and **Friday invite** (the most recent of each sent in the last 3 weeks), in the order they went out. Use **Latest Emails** to come back to this view after a search.
+
 **Find a campaign by:**
 - **Campaign title**: an exact match on the internal title (e.g. `Resend: Weekend Recap 9/27/26 (Jerry)`). If there's no exact match it falls back to a partial, case-insensitive match. If several campaigns match, it lists them so you can pick one.
 - **Campaign ID**: the Mailchimp campaign ID.

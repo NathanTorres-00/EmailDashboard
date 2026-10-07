@@ -1,7 +1,14 @@
-// Helpers shared by the report endpoints: Pacific-time formatting and YouTube link detection.
+// Helpers shared by the report endpoints: Pacific-time formatting, YouTube link detection,
+// and the title patterns that identify the three weekly TRA emails.
 
 const TIME_ZONE = 'America/Los_Angeles';
 const YOUTUBE_HOSTS = ['youtube.com', 'youtu.be', 'm.youtube.com'];
+
+const WEEKLY_EMAIL_PATTERNS = {
+    recap:  /^\s*weekend recap/i,
+    resend: /^\s*resend:\s*weekend recap/i,
+    friday: /^\s*personal invite from pastor/i,
+};
 
 const pacificDateKey = new Intl.DateTimeFormat('en-CA', {
     timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit'
@@ -37,4 +44,4 @@ function isYouTube(url) {
     return YOUTUBE_HOSTS.includes(host);
 }
 
-module.exports = { TIME_ZONE, pacificDateKey, pacificDisplay, utcDisplay, formatSendTime, isYouTube };
+module.exports = { TIME_ZONE, WEEKLY_EMAIL_PATTERNS, pacificDateKey, pacificDisplay, utcDisplay, formatSendTime, isYouTube };

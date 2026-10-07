@@ -672,6 +672,7 @@
             </div>
             <div class="actions">
                 <button type="submit" class="primary" id="runBtn">Run Report</button>
+                <button type="button" id="latestBtn">Latest Emails</button>
                 <button type="button" id="csvBtn" disabled>Download CSV</button>
                 <button type="button" id="jsonBtn" disabled>Download JSON</button>
                 <span class="status" id="status"></span>
@@ -687,13 +688,8 @@
 
         <div id="candidates"></div>
 
-        <div id="results">
-            <div class="empty-state">
-                <strong>Look up a sent campaign</strong><br>
-                Search by its internal title (exact or partial), its campaign ID, or a send date to see every campaign sent that day.<br>
-                Add a second title under “Compare with” to see two campaigns side by side, such as an original and its Resend.
-            </div>
-        </div>
+        <!-- Opens with the latest Sunday recap, Tuesday resend and Friday invite; search above for anything else. -->
+        <div id="results"></div>
     </div>
 
     <script src="report-page.js"></script>
