@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --bg-primary: #09090b;
@@ -22,6 +23,10 @@
             --success: #4ade80;
             --error: #f87171;
             --error-bg: rgba(248, 113, 113, 0.1);
+            /* Trend series — categorical slots 1–3, dark steps (validated all-pairs on #16161a) */
+            --series-recap: #3987e5;
+            --series-resend: #d95926;
+            --series-friday: #199e70;
         }
 
         * {
@@ -406,6 +411,8 @@
 
         td.nowrap { white-space: nowrap; }
 
+        td.muted { color: var(--text-muted); font-style: italic; }
+
         td.copy {
             min-width: 180px;
             max-width: 300px;
@@ -460,8 +467,96 @@
             line-height: 1.6;
         }
 
+        /* ---------- Monthly trend ---------- */
+        .trend-section { margin-top: 40px; }
+
+        .trend-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .trend-bar select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            color-scheme: dark;
+        }
+
+        .legend {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-key {
+            width: 16px;
+            height: 2px;
+            border-radius: 1px;
+        }
+
+        .trend-status {
+            margin-left: auto;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .trend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 18px 20px 12px;
+            min-width: 0;
+        }
+
+        .chart-card h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-card .chart-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 2px 0 10px;
+        }
+
+        .chart-box {
+            position: relative;
+            height: 220px;
+        }
+
+        th.group {
+            text-align: center;
+            border-left: 1px solid var(--border-color);
+        }
+
+        td.group-start, th.group-start { border-left: 1px solid var(--border-color); }
+
         @media (max-width: 1000px) {
             .week-grid { grid-template-columns: 1fr; }
+            .trend-grid { grid-template-columns: 1fr; }
         }
 
         @media (max-width: 640px) {
@@ -533,8 +628,57 @@
                 </div>
             </div>
         </div>
+
+        <section class="trend-section" id="trendSection">
+            <h2 class="section-heading">Monthly Trend <span class="count" id="trendRange"></span></h2>
+            <div class="trend-bar">
+                <select id="trendMonths" aria-label="How many months to show">
+                    <option value="6">Last 6 months</option>
+                    <option value="12" selected>Last 12 months</option>
+                </select>
+                <div class="legend" id="trendLegend"></div>
+                <span class="trend-status" id="trendStatus"></span>
+            </div>
+            <div id="trendError" class="error" style="display:none;"></div>
+            <div class="trend-grid">
+                <div class="chart-card">
+                    <h3>Open rate</h3>
+                    <p class="chart-sub">Opens excluding Apple ÷ recipients</p>
+                    <div class="chart-box"><canvas id="trendOpenRate" role="img" aria-label="Open rate by month"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Unique clicks</h3>
+                    <p class="chart-sub">Average per email</p>
+                    <div class="chart-box"><canvas id="trendUniqueClicks" role="img" aria-label="Average unique clicks per email by month"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Clicks on teaching</h3>
+                    <p class="chart-sub">Average per email — people who clicked a YouTube link</p>
+                    <div class="chart-box"><canvas id="trendTeaching" role="img" aria-label="Average clicks on teaching per email by month"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>Recipients</h3>
+                    <p class="chart-sub">Average per email — emails sent minus bounces</p>
+                    <div class="chart-box"><canvas id="trendRecipients" role="img" aria-label="Average recipients per email by month"></canvas></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="table-wrap">
+                    <table>
+                        <thead id="trendHead"></thead>
+                        <tbody id="trendBody"></tbody>
+                    </table>
+                </div>
+                <div class="footnote">
+                    Each month averages every Sunday recap, Tuesday resend and Friday invite sent that month (Pacific time), so months with five Sundays aren’t inflated.
+                    Same definitions as the weekly sheet. The current month is marked “so far” and fills in as the month goes on.
+                    The export adds this table as a second sheet.
+                </div>
+            </div>
+        </section>
     </div>
 
     <script src="eblast-page.js"></script>
+    <script src="eblast-trend.js"></script>
 </body>
 </html>

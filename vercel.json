@@ -5,6 +5,9 @@
   "functions": {
     "api/eblast.js": {
       "maxDuration": 60
+    },
+    "api/trends.js": {
+      "maxDuration": 60
     }
   }
 }

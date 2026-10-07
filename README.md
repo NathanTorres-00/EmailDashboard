@@ -47,6 +47,17 @@ Builds the rolling 4-week **TRA Eblast Performance** sheet straight from The Roc
 | Subject, Preview Text | From the campaign |
 | Attendance, Notes | Left blank in the export for you to fill in |
 
+### Monthly Trend
+
+Below the weekly report, the **Monthly Trend** section charts the last 12 months (or 6) for the Sunday recap, Tuesday resend and Friday invite:
+- **Charts:** open rate, unique clicks, clicks on teaching and recipients.
+- **Table:** the same figures month by month.
+- **Calculation:** each month averages every email of that type sent that month (Pacific time), so months with five Sundays aren't inflated. It uses the weekly sheet's definitions, including one email per type per week (the earliest send).
+- **Current month:** marked "so far".
+- **Export:** adds the table to the .xlsx as a second sheet, "Monthly Trend".
+
+Months load two at a time from `GET /api/trends?month=YYYY-MM`. Responses are cached at Vercel's edge (past months for 6 hours, the current month for 15 minutes), so after the first load the trend appears almost instantly.
+
 ## Campaign Report Page (`/report.html`)
 
 A second page (linked from the dashboard header) that reports on a single sent campaign. It only **reads** from Mailchimp: every call to the Mailchimp API is a GET request, and nothing in Mailchimp is ever changed.

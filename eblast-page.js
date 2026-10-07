@@ -294,6 +294,7 @@ function buildWorkbook(ExcelJS) {
         }
     });
 
+    addTrendSheet(wb); // second sheet, from eblast-trend.js (skipped until the trend has loaded)
     return wb;
 }
 
