@@ -56,7 +56,7 @@ Below the weekly report, the **Monthly Trend** section charts the last 12 months
 - **Current month:** marked "so far".
 - **Export:** adds the table to the .xlsx as a second sheet, "Monthly Trend".
 
-Months load two at a time from `GET /api/trends?month=YYYY-MM`. Responses are cached at Vercel's edge (past months for 6 hours, the current month for 15 minutes), so after the first load the trend appears almost instantly.
+The trend starts loading once the weekly report has finished, so the weekly numbers aren't slowed down. Months load two at a time from `GET /api/trends?month=YYYY-MM`. Responses are cached at Vercel's edge: months before last month for a week, last month for a day (late opens and clicks still arrive), and the current month for 15 minutes. When a cached month expires, the saved copy is still shown while a fresh one is fetched in the background, so after the first load the trend appears almost instantly. A new deployment clears the cache.
 
 ## Campaign Report Page (`/report.html`)
 

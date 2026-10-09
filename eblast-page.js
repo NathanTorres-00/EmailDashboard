@@ -211,6 +211,8 @@ async function loadReport() {
         $('error').style.display = 'block';
     } finally {
         setBusy(false);
+        // Lets the Monthly Trend start once the weekly numbers are in (see eblast-trend.js).
+        document.dispatchEvent(new Event('weeklyreportdone'));
     }
 }
 

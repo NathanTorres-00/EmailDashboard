@@ -5,8 +5,9 @@
 //   the number of emails and the average per email of recipients, opens, unique clicks and
 //   clicks on teaching, plus the open rate (total opens ÷ total recipients). Same definitions
 //   as the weekly sheet, including its rule of one email per type per Sunday–Saturday week
-//   (the earliest send). Responses are cached at the edge: past months for hours, the current
-//   month for a few minutes.
+//   (the earliest send). Responses are cached at the edge: months before last for a week, last
+//   month for a day (late opens and clicks still arrive), the current month for 15 minutes.
+//   Expired entries are served while a fresh copy is fetched in the background.
 
 const { createClient, MailchimpError } = require('./_mailchimp');
 const { WEEKLY_EMAIL_PATTERNS, pacificDateKey } = require('./_shared');
@@ -23,6 +24,14 @@ function nextMonth(month) {
 function weekStart(day) {
     const date = new Date(`${day}T00:00:00Z`);
     return new Date(date.getTime() - date.getUTCDay() * 86400000).toISOString().slice(0, 10);
+}
+
+const DAY_SECONDS = 86400;
+
+function cacheControl(month, currentMonth) {
+    if (month === currentMonth) return 's-maxage=900, stale-while-revalidate=3600';
+    const lastMonth = nextMonth(month) === currentMonth;
+    return `s-maxage=${lastMonth ? DAY_SECONDS : 7 * DAY_SECONDS}, stale-while-revalidate=${7 * DAY_SECONDS}`;
 }
 
 function summarize(rows) {
@@ -100,9 +109,7 @@ module.exports = async (req, res) => {
         if (month > currentMonth) throw new MailchimpError('That month hasn’t happened yet.', 400);
 
         const result = await buildMonth(month);
-        res.setHeader('Cache-Control', month < currentMonth
-            ? 's-maxage=21600, stale-while-revalidate=86400'
-            : 's-maxage=900, stale-while-revalidate=3600');
+        res.setHeader('Cache-Control', cacheControl(month, currentMonth));
         res.status(200).json({ ...result, complete: month < currentMonth });
     } catch (error) {
         const status = error instanceof MailchimpError ? error.status : 500;

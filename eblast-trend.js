@@ -344,5 +344,10 @@ function addTrendSheet(wb) {
 document.addEventListener('DOMContentLoaded', () => {
     renderTrendLegend();
     $('trendMonths').addEventListener('change', loadTrend);
-    loadTrend();
+    trendMonths = lastMonths(Number($('trendMonths').value));
+    renderTrend(); // empty charts and "Loading…" rows until it starts
+    $('trendStatus').textContent = 'Waiting for the weekly report…';
+    // Start after the weekly report has loaded, so the two don't compete for
+    // Mailchimp's limit on simultaneous requests.
+    document.addEventListener('weeklyreportdone', loadTrend, { once: true });
 });
