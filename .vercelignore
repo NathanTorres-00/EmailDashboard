@@ -1,0 +1,4 @@
+# Never upload local environment files: this static site serves files from the project root.
+.env
+.env.*
+!.env.example
