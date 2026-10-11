@@ -1,18 +1,57 @@
-// Campaign Report page — looks up one (or more) sent campaigns via /api/report
-// and renders metrics, a full links table, a YouTube section, and an optional comparison.
+// Campaign Report — the weekly sheet's numbers as a table, one row per email: the last four
+// Sunday–Saturday weeks of Friday invites, Sunday recaps and Tuesday resends (/api/eblast),
+// or any email found by title or send date (/api/report), shown in the same columns.
 
-const MODE_LABELS = {
-    title: { label: 'Campaign title', placeholder: 'Resend: Weekend Recap 9/27/26 (Jerry)' },
-    id:    { label: 'Campaign ID',    placeholder: 'e.g. 1a2b3c4d5e' },
-    date:  { label: 'Send date',      placeholder: '' },
-};
-
-let currentResult = null;          // { account, reports, compare, labels?, missing? } of the last rendered report
-const picked = { primary: null, compare: null }; // campaign IDs chosen from a candidates list
+const TIME_ZONE = 'America/Los_Angeles';
 
 const $ = id => document.getElementById(id);
 
-// ---------- Formatting ----------
+let shown = null;      // { sections: [{ label, rows: [row] }] } currently on screen
+let reportDate = null; // Sunday after the four weeks shown ("YYYY-MM-DD")
+
+// ---------- Dates & formatting ----------
+
+function addDays(day, days) {
+    return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+}
+
+function pacificToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+// The given day if it's a Sunday, otherwise the following Sunday.
+function sundayOnOrAfter(day) {
+    const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
+    return addDays(day, (7 - dow) % 7);
+}
+
+function longDate(day) {
+    return new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', {
+        timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+}
+
+function shortDate(day) {
+    return new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+}
+
+function clockTime(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+// Pacific date and send time rounded to the nearest 15 minutes, like the weekly sheet.
+function pacificDateAndTime(utc) {
+    const date = new Date(utc);
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    const [h, m] = new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .format(date).split(':').map(Number);
+    const minutes = Math.min(Math.round((h * 60 + m) / 15) * 15, 23 * 60 + 45);
+    return { day, time: `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}` };
+}
+
+const number = n => (n == null ? '—' : n.toLocaleString('en-US'));
+const percent = f => `${((f || 0) * 100).toFixed(1)}%`;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -20,528 +59,257 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function formatNumber(num) {
-    return (num || 0).toLocaleString('en-US');
+// "9/27/26", "9/27/2026" or "2026-09-27" → "2026-09-27"; anything else → null.
+function parseDate(text) {
+    let m = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+    if (m) return `${m[3].length === 2 ? `20${m[3]}` : m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+    return null;
 }
 
-function formatPercent(fraction) {
-    return ((fraction || 0) * 100).toFixed(2) + '%';
+// ---------- Rows ----------
+
+// A row is { day, time, recipients, opens, openRate, uniqueClicks, teachingClicks, subject, preview }
+// or { day, note } when no email went out.
+
+function rowFromWeekly(slot) {
+    const c = slot.campaign;
+    if (!c) {
+        const notSent = slot.expectedDate >= pacificToday();
+        return { day: slot.expectedDate, note: notSent ? 'Not sent yet' : slot.missingText };
+    }
+    return {
+        day: c.date, time: c.time, recipients: c.recipients, opens: c.opens, openRate: c.openRate,
+        uniqueClicks: c.uniqueClicks, teachingClicks: c.teachingClicks, subject: c.subject, preview: c.previewText
+    };
 }
 
-function safeHref(url) {
-    return /^https?:\/\//i.test(url) ? escapeHtml(url) : null;
+function rowFromReport(r) {
+    const { day, time } = pacificDateAndTime(r.sendTime.utc);
+    return {
+        day, time, recipients: r.recipients, opens: r.opens.unique, openRate: r.opens.rate,
+        uniqueClicks: r.clicks.unique, teachingClicks: r.youtube.uniqueClicks, subject: r.subjectLine, preview: r.previewText
+    };
 }
+
+const opensText = row => (row.opens == null ? '—' : `${number(row.opens)} (${percent(row.openRate)})`);
 
 // ---------- API ----------
 
-async function fetchReport(mode, value) {
-    const response = await fetch('/api/report', {
+async function post(path, body) {
+    const response = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, value })
+        body: JSON.stringify(body)
     });
     let data;
     try {
         data = await response.json();
     } catch {
-        throw new Error(`The report service returned an unexpected response (${response.status}).`);
+        throw new Error(`the report service sent an unexpected response (${response.status})`);
     }
-    if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
+    if (!response.ok) throw new Error(data.error || `the request failed (${response.status})`);
     return data;
 }
 
-// ---------- Rendering: one campaign ----------
+// ---------- Rendering ----------
 
-function renderMetrics(r) {
-    const cards = [
-        {
-            title: 'Recipients', accent: '#22d3ee',
-            value: formatNumber(r.recipients),
-            rows: [['Emails sent', formatNumber(r.emailsSent)], ['Minus bounces', formatNumber(r.bounces.hard + r.bounces.soft)]]
-        },
-        {
-            title: 'Opens', accent: '#4ade80',
-            value: formatNumber(r.opens.unique),
-            rows: [['Open rate', formatPercent(r.opens.rate)], ['Total opens', formatNumber(r.opens.total)]]
-        },
-        {
-            title: 'Unique Clicks', accent: '#a78bfa',
-            value: formatNumber(r.clicks.unique),
-            rows: [['Click rate', formatPercent(r.clicks.rate)], ['Total clicks', formatNumber(r.clicks.total)]]
-        },
-        {
-            title: 'Clicks on Teaching', accent: '#f87171',
-            value: formatNumber(r.youtube.uniqueClicks),
-            rows: [['YouTube links clicked', formatNumber(r.youtube.links.length)]]
-        },
-        {
-            title: 'Bounces', accent: '#fb923c',
-            value: formatNumber(r.bounces.hard + r.bounces.soft),
-            rows: [['Hard bounces', formatNumber(r.bounces.hard)], ['Soft bounces', formatNumber(r.bounces.soft)]]
-        },
-        {
-            title: 'Unsubscribes', accent: '#71717a',
-            value: formatNumber(r.unsubscribes),
-            rows: [['Unsubscribed', formatNumber(r.unsubscribes)]]
-        }
-    ];
-
-    return `<div class="stats-grid">${cards.map(c => `
-        <div class="stat-card">
-            <div class="stat-card-accent" style="background:${c.accent};"></div>
-            <h3>${c.title}</h3>
-            <div class="value">${c.value}</div>
-            <div class="breakdown">${c.rows.map(([label, val]) => `<span>${label}: <strong>${val}</strong></span>`).join('')}</div>
-        </div>`).join('')}
-    </div>
-    <p class="metrics-note">Same numbers as the weekly TRA sheet: recipients are emails sent minus bounces, opens exclude Apple Mail Privacy Protection, unique clicks are Mailchimp’s unique clicks, and rates are a % of recipients.</p>`;
-}
-
-function linkCell(link) {
-    const href = safeHref(link.url);
-    const text = escapeHtml(link.url);
-    const anchor = href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>` : text;
-    return `<td class="url-cell">${anchor}${link.isYouTube ? '<span class="yt-tag">YOUTUBE</span>' : ''}</td>`;
-}
-
-function renderLinksTable(r) {
-    const body = r.links.length
-        ? `<table>
-                <thead><tr>
-                    <th>URL</th>
-                    <th class="num">Total clicks</th>
-                    <th class="num">Unique clicks</th>
-                    <th class="num">% of clicks</th>
-                    <th class="num">% of unique clicks</th>
-                </tr></thead>
-                <tbody>${r.links.map(l => `
-                    <tr>
-                        ${linkCell(l)}
-                        <td class="num">${formatNumber(l.totalClicks)}</td>
-                        <td class="num">${formatNumber(l.uniqueClicks)}</td>
-                        <td class="num">${formatPercent(l.shareOfClicks)}</td>
-                        <td class="num">${formatPercent(l.shareOfUniqueClicks)}</td>
-                    </tr>`).join('')}
-                </tbody>
-           </table>`
-        : '<div class="no-data">No link clicks were recorded for this campaign.</div>';
-
-    return `
-        <h2 class="section-heading">Link Clicks <span class="count">· ${r.links.length} link${r.links.length === 1 ? '' : 's'}</span></h2>
-        <div class="panel"><div class="table-wrap">${body}</div></div>`;
-}
-
-function renderYouTube(r) {
-    const yt = r.youtube;
-    let body;
-    if (!yt.links.length) {
-        body = '<div class="no-data">No YouTube links (youtube.com, youtu.be, m.youtube.com) were clicked in this campaign.</div>';
-    } else {
-        body = `
-            <div class="yt-summary">
-                <div><div class="meta-label">YouTube total clicks</div><div class="meta-value">${formatNumber(yt.totalClicks)}</div></div>
-                <div><div class="meta-label">People who clicked (teaching)</div><div class="meta-value">${formatNumber(yt.uniqueClicks)}</div></div>
-                <div><div class="meta-label">YouTube links clicked</div><div class="meta-value">${yt.links.length}</div></div>
-            </div>
-            <div class="table-wrap"><table>
-                <thead><tr>
-                    <th>YouTube URL</th>
-                    <th class="num">Total clicks</th>
-                    <th class="num">Unique clicks</th>
-                </tr></thead>
-                <tbody>${yt.links.map(l => `
-                    <tr>
-                        ${linkCell({ ...l, isYouTube: false })}
-                        <td class="num">${formatNumber(l.totalClicks)}</td>
-                        <td class="num">${formatNumber(l.uniqueClicks)}</td>
-                    </tr>`).join('')}
-                </tbody>
-                <tfoot><tr>
-                    <td>Combined YouTube total (each person once)</td>
-                    <td class="num">${formatNumber(yt.totalClicks)}</td>
-                    <td class="num">${formatNumber(yt.uniqueClicks)}</td>
-                </tr></tfoot>
-            </table></div>
-            ${yt.links.length > 1 ? '<div class="footnote">The combined unique figure counts each person once, even if they clicked more than one YouTube link, so it can be lower than the column total. It matches “Clicks on teaching” on the weekly sheet.</div>' : ''}`;
+function setStatus(text, { error = false, retry = null } = {}) {
+    const el = $('status');
+    el.className = `status${error ? ' error' : ''}`;
+    el.textContent = text;
+    if (retry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'text-button';
+        button.textContent = 'Try again';
+        button.addEventListener('click', retry);
+        el.append(button);
     }
-
-    return `
-        <h2 class="section-heading youtube">YouTube Links</h2>
-        <div class="panel">${body}</div>`;
 }
 
-function renderReport(r, badge) {
-    const meta = [
-        ['Sent (Pacific)', escapeHtml(r.sendTime.pacificDisplay), escapeHtml(r.sendTime.utcDisplay)],
-        ['Audience', escapeHtml(r.audience || '—'), null],
-        ['Segment', r.segmentText ? escapeHtml(r.segmentText) : '<span class="muted">Entire audience</span>', null],
-        ['Campaign ID', escapeHtml(r.id), null]
-    ];
-
-    return `
-        <section class="report">
-            <div class="report-head">
-                ${badge ? `<span class="report-badge">${escapeHtml(badge)}</span>` : ''}
-                <div class="report-title">${escapeHtml(r.title)}</div>
-                <div class="report-subject">${r.subjectLine ? escapeHtml(r.subjectLine) : '<span class="muted">No subject line</span>'}</div>
-                <div class="report-preview">${r.previewText ? escapeHtml(r.previewText) : 'No preview text'}</div>
-                <div class="meta-grid">${meta.map(([label, value, secondary]) => `
-                    <div>
-                        <div class="meta-label">${label}</div>
-                        <div class="meta-value">${value}</div>
-                        ${secondary ? `<div class="meta-value secondary">${secondary}</div>` : ''}
-                    </div>`).join('')}
-                </div>
-            </div>
-            ${renderMetrics(r)}
-            ${renderLinksTable(r)}
-            ${renderYouTube(r)}
-        </section>`;
-}
-
-// ---------- Rendering: comparison ----------
-
-function compareRows(a, b) {
-    return [
-        { label: 'Recipients',            a: a.recipients,           b: b.recipients },
-        { label: 'Total opens',           a: a.opens.total,          b: b.opens.total },
-        { label: 'Unique opens',          a: a.opens.unique,         b: b.opens.unique },
-        { label: 'Open rate',             a: a.opens.rate,           b: b.opens.rate, rate: true },
-        { label: 'Total clicks',          a: a.clicks.total,         b: b.clicks.total },
-        { label: 'Unique clicks',         a: a.clicks.unique,        b: b.clicks.unique },
-        { label: 'Click rate',            a: a.clicks.rate,          b: b.clicks.rate, rate: true },
-        { label: 'YouTube total clicks',  a: a.youtube.totalClicks,  b: b.youtube.totalClicks },
-        { label: 'Clicks on teaching',    a: a.youtube.uniqueClicks, b: b.youtube.uniqueClicks },
-        { label: 'Hard bounces',          a: a.bounces.hard,         b: b.bounces.hard, lowerIsBetter: true },
-        { label: 'Soft bounces',          a: a.bounces.soft,         b: b.bounces.soft, lowerIsBetter: true },
-        { label: 'Unsubscribes',          a: a.unsubscribes,         b: b.unsubscribes, lowerIsBetter: true },
-    ];
-}
-
-// Change of B relative to A: counts as "+N (+x.xx%)", rates in percentage points.
-function formatDelta(row) {
-    const diff = row.b - row.a;
-    if (diff === 0) return { text: 'No change', cls: 'delta-flat' };
-
-    const good = row.lowerIsBetter ? diff < 0 : diff > 0;
-    const cls = good ? 'delta-up' : 'delta-down';
-    const sign = diff > 0 ? '+' : '−';
-
-    if (row.rate) {
-        return { text: `${sign}${Math.abs(diff * 100).toFixed(2)} pts`, cls };
+function setBusy(busy) {
+    $('searchBtn').disabled = busy;
+    $('earlierBtn').disabled = busy;
+    $('laterBtn').disabled = busy || !reportDate || reportDate >= sundayOnOrAfter(pacificToday());
+    if (busy) {
+        $('results').hidden = true;
+        $('picker').innerHTML = '';
     }
-    const pct = row.a ? ` (${sign}${Math.abs(diff / row.a * 100).toFixed(2)}%)` : '';
-    return { text: `${sign}${formatNumber(Math.abs(diff))}${pct}`, cls };
 }
 
-function renderComparison(a, b) {
-    const fmt = row => v => row.rate ? formatPercent(v) : formatNumber(v);
+function renderRow(row) {
+    const date = `<td class="date">${escapeHtml(longDate(row.day))}</td>`;
+    if (row.note) {
+        return `<tr class="note">${date}<td></td><td colspan="4"></td><td colspan="2">${escapeHtml(row.note)}</td></tr>`;
+    }
     return `
-        <h2 class="section-heading">Side-by-Side Comparison</h2>
-        <div class="panel" style="margin-bottom:48px;">
-            <div class="table-wrap"><table>
-                <thead><tr>
-                    <th>Metric</th>
-                    <th class="num">A<span class="compare-col-title">${escapeHtml(a.title)}</span></th>
-                    <th class="num">B<span class="compare-col-title">${escapeHtml(b.title)}</span></th>
-                    <th class="num">Change (B vs A)</th>
-                </tr></thead>
-                <tbody>${compareRows(a, b).map(row => {
-                    const delta = formatDelta(row);
-                    return `
-                    <tr>
-                        <td class="campaign-title">${row.label}</td>
-                        <td class="num">${fmt(row)(row.a)}</td>
-                        <td class="num">${fmt(row)(row.b)}</td>
-                        <td class="num ${delta.cls}">${delta.text}</td>
-                    </tr>`;
-                }).join('')}
-                </tbody>
-            </table></div>
-            <div class="footnote">A sent ${escapeHtml(a.sendTime.pacificDisplay)} · B sent ${escapeHtml(b.sendTime.pacificDisplay)}. Rate changes are in percentage points.</div>
-        </div>`;
+        <tr>
+            ${date}
+            <td class="time">${clockTime(row.time)}</td>
+            <td class="num">${number(row.recipients)}</td>
+            <td class="num">${row.opens == null ? '—' : `${number(row.opens)} <span class="rate">(${percent(row.openRate)})</span>`}</td>
+            <td class="num">${number(row.uniqueClicks)}</td>
+            <td class="num">${number(row.teachingClicks)}</td>
+            <td class="subject">${escapeHtml(row.subject)}</td>
+            <td class="preview">${escapeHtml(row.preview)}</td>
+        </tr>`;
 }
 
-// ---------- Rendering: candidates ----------
-
-function renderCandidates(slot, query, result) {
-    const which = slot === 'compare' ? 'the “Compare with” title' : 'your search';
-    const reason = result.matchType === 'exact'
-        ? `${result.candidates.length} campaigns share the exact title “${escapeHtml(query)}”.`
-        : `No exact title match. ${result.candidates.length} campaigns contain “${escapeHtml(query)}”.`;
-
-    $('candidates').innerHTML = `
-        <div class="panel">
-            <div class="panel-header">
-                <h2>Which campaign did you mean?</h2>
-                <p>${reason} Pick one for ${which}.</p>
-            </div>
-            <div class="table-wrap"><table>
-                <thead><tr><th>Title</th><th>Subject line</th><th>Sent (Pacific)</th><th>ID</th><th></th></tr></thead>
-                <tbody>${result.candidates.map(c => `
-                    <tr>
-                        <td class="campaign-title">${escapeHtml(c.title)}</td>
-                        <td>${escapeHtml(c.subjectLine)}</td>
-                        <td class="muted" style="white-space:nowrap;">${escapeHtml(c.sendTime.pacificDisplay)}</td>
-                        <td class="muted">${escapeHtml(c.id)}</td>
-                        <td class="num"><button type="button" class="pick-btn" data-slot="${slot}" data-id="${escapeHtml(c.id)}">View report</button></td>
-                    </tr>`).join('')}
-                </tbody>
-            </table></div>
-        </div>`;
+function show(sections, { lede, isWeeks }) {
+    shown = { sections };
+    $('lede').textContent = lede;
+    setStatus('');
+    $('rows').innerHTML = sections.map(section => `
+        ${section.label ? `<tr class="section"><th colspan="8" scope="colgroup">${escapeHtml(section.label)}</th></tr>` : ''}
+        ${section.rows.map(renderRow).join('')}`).join('');
+    $('results').hidden = false;
+    $('backBtn').hidden = isWeeks;
 }
 
-// ---------- Main flow ----------
-
-function setBusy(busy, text) {
-    $('loading').style.display = busy ? 'block' : 'none';
-    $('loadingText').textContent = text || 'Loading campaign report...';
-    $('runBtn').disabled = busy;
-    $('runBtn').textContent = busy ? 'Loading...' : 'Run Report';
-    $('latestBtn').disabled = busy;
-    $('csvBtn').disabled = busy || !currentResult;
-    $('jsonBtn').disabled = busy || !currentResult;
+function showPicker(query, candidates) {
+    $('lede').textContent = `Emails with “${query}” in the title.`;
+    setStatus('');
+    $('picker').innerHTML = `
+        <p>${candidates.length} emails match. Pick one to see its numbers.</p>
+        <ul>${candidates.map(c => {
+            const { day } = pacificDateAndTime(c.sendTime.utc);
+            return `
+            <li><button type="button" data-id="${escapeHtml(c.id)}">
+                <span>${escapeHtml(c.title)}</span>
+                <span class="when">${escapeHtml(longDate(day))}</span>
+            </button></li>`;
+        }).join('')}
+        </ul>`;
+    $('results').hidden = true;
+    $('backBtn').hidden = false;
 }
 
-function showError(message) {
-    $('error').innerHTML = `<strong>Couldn’t load the report:</strong> ${escapeHtml(message)}`;
-    $('error').style.display = 'block';
+// ---------- Flows ----------
+
+async function loadWeeks(date) {
+    reportDate = date;
+    history.replaceState(null, '', date === sundayOnOrAfter(pacificToday()) ? location.pathname : `${location.pathname}?weeks=${date}`);
+    setBusy(true);
+    setStatus('Loading four weeks of emails from Mailchimp…');
+    try {
+        const data = await post('/api/eblast', { action: 'report', reportDate: date });
+        const first = addDays(date, -28);
+        const last = addDays(date, -1);
+        show(data.sections.map(s => ({ label: s.label, rows: s.rows.map(rowFromWeekly) })), {
+            lede: `Friday invites, Sunday recaps and Tuesday resends from ${shortDate(first)} to ${shortDate(last)}.`,
+            isWeeks: true
+        });
+    } catch (err) {
+        setStatus(`Couldn’t load the emails: ${err.message}.`, { error: true, retry: () => loadWeeks(date) });
+    } finally {
+        setBusy(false);
+    }
 }
 
-function syncUrl(mode, query, compareQuery) {
-    const params = new URLSearchParams({ mode, q: query });
-    if (compareQuery) params.set('compare', compareQuery);
-    history.replaceState(null, '', `${location.pathname}?${params}`);
-}
-
-async function runReport() {
-    const mode = $('mode').value;
-    const query = $('query').value.trim();
-    const compareQuery = mode === 'date' ? '' : $('compareQuery').value.trim();
-
-    $('error').style.display = 'none';
-    $('candidates').innerHTML = '';
-
+async function search(query) {
+    query = query.trim();
     if (!query) {
-        showError(mode === 'date' ? 'Please choose a send date.' : `Please enter a ${MODE_LABELS[mode].label.toLowerCase()}.`);
+        setStatus('Type a title or a send date to search.', { error: true });
+        $('q').focus();
         return;
     }
+    history.replaceState(null, '', `${location.pathname}?q=${encodeURIComponent(query)}`);
 
-    syncUrl(mode, query, compareQuery);
-    setBusy(true, mode === 'date' ? `Finding campaigns sent on ${query}...` : 'Loading campaign report...');
+    const day = parseDate(query);
+    const mode = day ? 'date' : /^[0-9a-f]{10}$/i.test(query) ? 'id' : 'title';
 
+    setBusy(true);
+    setStatus(day ? `Finding emails sent on ${longDate(day)}…` : 'Searching Mailchimp…');
     try {
-        const primary = picked.primary
-            ? await fetchReport('id', picked.primary)
-            : await fetchReport(mode, query);
-
-        if (primary.candidates) {
-            clearResults();
-            renderCandidates('primary', query, primary);
+        const data = await post('/api/report', { mode, value: day || query });
+        if (data.candidates) {
+            showPicker(query, data.candidates);
             return;
         }
-
-        let compareReport = null;
-        if (compareQuery) {
-            setBusy(true, 'Loading comparison campaign...');
-            const other = picked.compare
-                ? await fetchReport('id', picked.compare)
-                : await fetchReport('title', compareQuery);
-            if (other.candidates) {
-                clearResults();
-                renderCandidates('compare', compareQuery, other);
-                return;
-            }
-            compareReport = other.reports[0];
-        }
-
-        currentResult = { account: primary.account, reports: primary.reports, compare: compareReport };
-        renderResults();
+        show([{ label: null, rows: data.reports.map(rowFromReport) }], {
+            lede: day ? `Emails sent on ${longDate(day)}.` : `Results for “${query}”.`,
+            isWeeks: false
+        });
     } catch (err) {
-        showError(err.message);
+        $('backBtn').hidden = false;
+        setStatus(`${err.message.replace(/\.$/, '')}.`, { error: true });
     } finally {
         setBusy(false);
     }
 }
 
-// Default view: the most recent Sunday recap, Tuesday resend and Friday invite.
-async function runLatest() {
-    $('error').style.display = 'none';
-    $('candidates').innerHTML = '';
-    history.replaceState(null, '', location.pathname);
-    setBusy(true, 'Loading the latest Sunday, Tuesday and Friday emails...');
-
+async function openById(id, title) {
+    setBusy(true);
+    setStatus('Loading that email…');
     try {
-        const data = await fetchReport('latest', '');
-        currentResult = { account: data.account, reports: data.reports, compare: null, labels: data.labels, missing: data.missing };
-        renderResults();
+        const data = await post('/api/report', { mode: 'id', value: id });
+        show([{ label: null, rows: data.reports.map(rowFromReport) }], { lede: `Results for “${title}”.`, isWeeks: false });
     } catch (err) {
-        clearResults();
-        showError(err.message);
+        setStatus(`Couldn’t load that email: ${err.message}.`, { error: true, retry: () => openById(id, title) });
     } finally {
         setBusy(false);
     }
 }
 
-function clearResults() {
-    currentResult = null;
-    $('results').innerHTML = '';
-    $('status').textContent = '';
-}
-
-function renderResults() {
-    const { reports, compare, account, labels, missing } = currentResult;
-    let html = '';
-
-    if (missing?.length) {
-        html += `<div class="empty-state" style="margin-bottom:24px;padding:16px 24px;">No ${escapeHtml(missing.join(' or ').toLowerCase())} was sent in the last 3 weeks.</div>`;
-    }
-
-    if (labels) {
-        html += reports.map((r, i) => renderReport(r, labels[i])).join('');
-    } else if (compare) {
-        html += renderComparison(reports[0], compare);
-        html += renderReport(reports[0], 'Campaign A');
-        html += renderReport(compare, 'Campaign B');
-    } else {
-        html += reports.map((r, i) => renderReport(r, reports.length > 1 ? `Campaign ${i + 1} of ${reports.length}` : '')).join('');
-    }
-
-    $('results').innerHTML = html;
-
-    const count = reports.length + (compare ? 1 : 0);
-    const what = labels ? 'latest weekly emails' : `${count} campaign${count === 1 ? '' : 's'}`;
-    $('status').textContent = `${account} · ${what} · loaded ${new Date().toLocaleTimeString()}`;
-}
-
-// ---------- Downloads ----------
+// ---------- CSV (same columns as the weekly sheet) ----------
 
 function csvCell(value) {
     const s = String(value ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function reportToCsvRows(r, label) {
-    const rows = [
-        [label],
-        ['Campaign title', r.title],
-        ['Subject line', r.subjectLine],
-        ['Preview text', r.previewText],
-        ['Sent (Pacific)', r.sendTime.pacificDisplay],
-        ['Sent (UTC)', r.sendTime.utcDisplay],
-        ['Audience', r.audience],
-        ['Segment', r.segmentText || 'Entire audience'],
-        ['Campaign ID', r.id],
-        ['Emails sent', r.emailsSent],
-        ['Recipients (sent minus bounces)', r.recipients],
-        ['Total opens (excl. Apple MPP)', r.opens.total],
-        ['Unique opens (excl. Apple MPP)', r.opens.unique],
-        ['Open rate', formatPercent(r.opens.rate)],
-        ['Total clicks', r.clicks.total],
-        ['Unique clicks', r.clicks.unique],
-        ['Click rate', formatPercent(r.clicks.rate)],
-        ['Hard bounces', r.bounces.hard],
-        ['Soft bounces', r.bounces.soft],
-        ['Unsubscribes', r.unsubscribes],
-        [],
-        ['URL', 'Total clicks', 'Unique clicks', '% of clicks', '% of unique clicks', 'YouTube'],
-        ...r.links.map(l => [l.url, l.totalClicks, l.uniqueClicks, formatPercent(l.shareOfClicks), formatPercent(l.shareOfUniqueClicks), l.isYouTube ? 'Yes' : '']),
-        [],
-        ['YouTube total clicks', r.youtube.totalClicks],
-        ['Clicks on teaching (people)', r.youtube.uniqueClicks],
-        [], []
-    ];
-    return rows;
-}
+function downloadCsv() {
+    if (!shown) return;
+    const columns = ['Time', 'Recipients', 'Opens', 'Unique Clicks', 'Clicks on teaching', 'Attendance', 'Subject', 'Preview Text', 'Notes'];
+    const lines = [];
+    shown.sections.forEach((section, i) => {
+        if (i > 0) lines.push([]);
+        lines.push([section.label || 'Date', ...columns]);
+        for (const row of section.rows) {
+            lines.push(row.note
+                ? [longDate(row.day), '', '', '', '', '', '', row.note, '', '']
+                : [longDate(row.day), clockTime(row.time), row.recipients, opensText(row), row.uniqueClicks,
+                   row.teachingClicks, '', row.subject, row.preview, '']);
+        }
+    });
+    const csv = lines.map(line => line.map(csvCell).join(',')).join('\n');
 
-function download(filename, content, type) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = `campaign-report-${reportDate || pacificToday()}.csv`;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 100);
-}
-
-function fileBaseName() {
-    if (currentResult.labels) return `campaign-report-latest-weekly-${new Date().toISOString().slice(0, 10)}`;
-    const first = currentResult.reports[0];
-    const slug = (first.title || first.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
-    return `campaign-report-${slug || first.id}`;
-}
-
-function downloadCsv() {
-    if (!currentResult) return;
-    const { reports, compare, labels } = currentResult;
-    let rows = [];
-
-    if (compare) {
-        rows.push(['Comparison', 'A: ' + reports[0].title, 'B: ' + compare.title, 'Change (B vs A)']);
-        for (const row of compareRows(reports[0], compare)) {
-            const fmt = v => row.rate ? formatPercent(v) : v;
-            rows.push([row.label, fmt(row.a), fmt(row.b), formatDelta(row).text.replace('−', '-')]);
-        }
-        rows.push([], []);
-        rows = rows.concat(reportToCsvRows(reports[0], 'Campaign A'), reportToCsvRows(compare, 'Campaign B'));
-    } else {
-        reports.forEach((r, i) => { rows = rows.concat(reportToCsvRows(r, labels ? labels[i] : `Campaign ${i + 1}`)); });
-    }
-
-    const csv = rows.map(r => r.map(csvCell).join(',')).join('\n');
-    download(`${fileBaseName()}.csv`, csv, 'text/csv');
-}
-
-function downloadJson() {
-    if (!currentResult) return;
-    download(`${fileBaseName()}.json`, JSON.stringify(currentResult, null, 2), 'application/json');
 }
 
 // ---------- Wiring ----------
 
-function applyMode() {
-    const mode = $('mode').value;
-    const { label, placeholder } = MODE_LABELS[mode];
-    const input = $('query');
-
-    $('queryLabel').textContent = label;
-    if (mode === 'date') {
-        if (input.type !== 'date') input.value = '';
-        input.type = 'date';
-    } else {
-        if (input.type === 'date') input.value = '';
-        input.type = 'text';
-    }
-    input.placeholder = placeholder;
-    $('compareQuery').disabled = mode === 'date';
-    $('compareField').title = mode === 'date' ? 'Comparison is available when searching by title or ID' : '';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    $('mode').addEventListener('change', () => { picked.primary = null; picked.compare = null; applyMode(); });
-    $('query').addEventListener('input', () => { picked.primary = null; });
-    $('compareQuery').addEventListener('input', () => { picked.compare = null; });
+    const current = sundayOnOrAfter(pacificToday());
 
-    $('reportForm').addEventListener('submit', e => { e.preventDefault(); runReport(); });
-    $('latestBtn').addEventListener('click', runLatest);
+    $('searchForm').addEventListener('submit', e => { e.preventDefault(); search($('q').value); });
     $('csvBtn').addEventListener('click', downloadCsv);
-    $('jsonBtn').addEventListener('click', downloadJson);
-
-    $('candidates').addEventListener('click', e => {
-        const btn = e.target.closest('.pick-btn');
-        if (!btn) return;
-        picked[btn.dataset.slot] = btn.dataset.id;
-        runReport();
+    $('backBtn').addEventListener('click', () => { $('q').value = ''; loadWeeks(current); });
+    $('earlierBtn').addEventListener('click', () => loadWeeks(addDays(reportDate || current, -7)));
+    $('laterBtn').addEventListener('click', () => loadWeeks(addDays(reportDate || current, 7)));
+    $('picker').addEventListener('click', e => {
+        const button = e.target.closest('button[data-id]');
+        if (button) openById(button.dataset.id, button.querySelector('span').textContent);
     });
 
-    // Shareable links: report.html?mode=title&q=...&compare=...
+    // Shareable links: report.html?q=<title or date>, or report.html?weeks=<Sunday after the four weeks>
     const params = new URLSearchParams(location.search);
-    if (MODE_LABELS[params.get('mode')]) $('mode').value = params.get('mode');
-    applyMode();
-    if (params.get('q')) $('query').value = params.get('q');
-    if (params.get('compare')) $('compareQuery').value = params.get('compare');
-    if (params.get('q')) runReport();
-    else runLatest();
+    const weeks = params.get('weeks');
+    if (params.get('q')) {
+        $('q').value = params.get('q');
+        search(params.get('q'));
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(weeks || '') && sundayOnOrAfter(weeks) <= current) {
+        loadWeeks(sundayOnOrAfter(weeks));
+    } else {
+        loadWeeks(current);
+    }
 });

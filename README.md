@@ -60,25 +60,20 @@ The trend starts loading once the weekly report has finished, so the weekly numb
 
 ## Campaign Report Page (`/report.html`)
 
-A second page (linked from the dashboard header) that reports on a single sent campaign. It only **reads** from Mailchimp: every call to the Mailchimp API is a GET request, and nothing in Mailchimp is ever changed.
+A simple table of the weekly sheet's numbers, one row per email. It only **reads** from Mailchimp: every call to the Mailchimp API is a GET request, and nothing in Mailchimp is ever changed.
 
-**When you open it**, the page loads full reports for the latest **Sunday recap**, **Tuesday resend** and **Friday invite** (the most recent of each sent in the last 3 weeks), in the order they went out. Use **Latest Emails** to come back to this view after a search.
+**When you open it**, the page shows the last four Sunday–Saturday weeks, grouped like the sheet:
+- **Fridays/Saturdays:** the Friday invites
+- **Sundays/Mondays:** the Sunday recaps
+- **Midweek Resends (Sunday recaps):** the Tuesday resends
 
-**Find a campaign by:**
-- **Campaign title**: an exact match on the internal title (e.g. `Resend: Weekend Recap 9/27/26 (Jerry)`). If there's no exact match it falls back to a partial, case-insensitive match. If several campaigns match, it lists them so you can pick one.
-- **Campaign ID**: the Mailchimp campaign ID.
-- **Send date**: every campaign sent on that day (Pacific time), with a full report for each.
-
-**Each report shows:**
-- **Details:** title, subject line, preview text, send time (Pacific and UTC), audience, and segment.
-- **Metrics:** the same numbers as the weekly TRA sheet: recipients (emails sent minus bounces), opens excluding Apple Mail Privacy Protection, Mailchimp's unique clicks, and clicks on teaching (people who clicked any YouTube link). Rates are a % of recipients. Also shows total opens and clicks, hard and soft bounces, and unsubscribes.
-- **Link clicks:** every clicked link, with total and unique clicks plus each link's share of all clicks and of unique clicks.
-- **YouTube links:** clicks on youtube.com, youtu.be and m.youtube.com, per link, with a combined unique figure that counts each person once.
+Each row shows the date, time (Pacific, rounded to 15 minutes), recipients, opens with the open rate, unique clicks, clicks on teaching, subject and preview text. It uses the same definitions and data as the Weekly Eblast Report. A week with no matching email shows a note instead, such as "No resend this week", or "Not sent yet".
 
 **Extras**
-- **Compare with:** enter a second title to see two campaigns side by side, such as an original and its Resend. Changes are shown as counts, percentages and percentage points.
-- **Download:** export the report as a CSV or JSON file.
-- **Shareable links:** the page URL keeps the search, e.g. `report.html?mode=title&q=Weekend%20Recap&compare=...`
+- **Earlier weeks / Later weeks:** move the four-week window back or forward one week.
+- **Find another email:** search by title (several matches give a list to pick from) or by send date (`9/27/26`). Results appear in the same row format.
+- **Download CSV:** the rows on screen, in the sheet's column order, with Attendance and Notes left blank.
+- **Shareable links:** `report.html?weeks=2026-10-11` for a four-week window, or `report.html?q=9/27/26` for a search.
 
 ### API key
 
