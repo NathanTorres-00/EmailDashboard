@@ -9,5 +9,12 @@
     "api/trends.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/report.html",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }

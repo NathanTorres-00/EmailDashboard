@@ -1,24 +1,14 @@
-# Mailchimp Campaign Dashboard
+# The Rock Anaheim — Mailchimp Reports
 
-A beautiful, real-time dashboard for viewing Mailchimp campaign performance.
+Read-only reporting on The Rock Anaheim's weekly emails (Friday invites, Sunday recaps and Tuesday resends), pulled live from Mailchimp.
 
-## Features
+| Page | Address | What it's for |
+| --- | --- | --- |
+| **Campaign Report** (home page) | `/` | The last four weeks of emails as a table of the sheet's numbers, plus search by title or date |
+| **Weekly Eblast Report** | `/eblast.html` | The rolling 4-week TRA sheet with .xlsx export, and the Monthly Trend |
+| Original dashboard | `/dashboard.html` | The earlier multi-audience dashboard. Not linked from the reports, and it doesn't currently load with The Rock Anaheim's API key |
 
-- 📊 Real-time campaign statistics
-- 📧 Detailed campaign performance metrics
-- 📅 Customizable date ranges (7, 14, 30, 90 days)
-- 📱 Responsive design for mobile and desktop
-- 🎨 Clean, professional interface perfect for stakeholders
-
-## Metrics Tracked
-
-- Emails Sent
-- Unique Opens & Open Rate
-- Unique Clicks & Click Rate
-- Total Opens
-- Unsubscribed
-- Abuse Reports
-- Forwards
+Old `/report.html` links, including shared searches like `report.html?q=9/27/26`, redirect to the home page.
 
 ## Weekly Eblast Report (`/eblast.html`)
 
@@ -58,7 +48,7 @@ Below the weekly report, the **Monthly Trend** section charts the last 12 months
 
 The trend starts loading once the weekly report has finished, so the weekly numbers aren't slowed down. Months load two at a time from `GET /api/trends?month=YYYY-MM`. Responses are cached at Vercel's edge: months before last month for a week, last month for a day (late opens and clicks still arrive), and the current month for 15 minutes. When a cached month expires, the saved copy is still shown while a fresh one is fetched in the background, so after the first load the trend appears almost instantly. A new deployment clears the cache.
 
-## Campaign Report Page (`/report.html`)
+## Campaign Report (home page, `/`)
 
 A simple table of the weekly sheet's numbers, one row per email. It only **reads** from Mailchimp: every call to the Mailchimp API is a GET request, and nothing in Mailchimp is ever changed.
 
@@ -73,7 +63,7 @@ Each row shows the date, time (Pacific, rounded to 15 minutes), recipients, open
 - **Earlier weeks / Later weeks:** move the four-week window back or forward one week.
 - **Find another email:** search by title (several matches give a list to pick from) or by send date (`9/27/26`). Results appear in the same row format.
 - **Download CSV:** the rows on screen, in the sheet's column order, with Attendance and Notes left blank.
-- **Shareable links:** `report.html?weeks=2026-10-11` for a four-week window, or `report.html?q=9/27/26` for a search.
+- **Shareable links:** `/?weeks=2026-10-11` for a four-week window, or `/?q=9/27/26` for a search.
 
 ### API key
 
@@ -137,7 +127,7 @@ To update data, just refresh the page or click the "Refresh Data" button.
 
 ## Customization
 
-Want to customize the look? Edit the CSS in `index.html`
+Want to customize the look? Each page keeps its styles in a `<style>` block at the top of its HTML file (`index.html`, `eblast.html`, `dashboard.html`).
 Want to add more metrics? Edit the stats in `app.js`
 
 ## Support

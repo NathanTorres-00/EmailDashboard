@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (button) openById(button.dataset.id, button.querySelector('span').textContent);
     });
 
-    // Shareable links: report.html?q=<title or date>, or report.html?weeks=<Sunday after the four weeks>
+    // Shareable links: /?q=<title or date>, or /?weeks=<Sunday after the four weeks> (old report.html links redirect here)
     const params = new URLSearchParams(location.search);
     const weeks = params.get('weeks');
     if (params.get('q')) {
